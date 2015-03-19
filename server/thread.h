@@ -92,6 +92,8 @@ struct thread
     int                    esync_fd;      /* esync file descriptor (signalled on exit) */
     int                    esync_apc_fd;  /* esync apc fd (signalled when APCs are present) */
     struct timeout_user   *exit_poll;     /* poll if the thread/process has exited already */
+    int                    shm_fd;        /* file descriptor for thread local shared memory */
+    shmlocal_t            *shm;           /* thread local shared memory pointer */
 };
 
 struct thread_snapshot
