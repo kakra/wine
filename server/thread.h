@@ -91,6 +91,7 @@ struct thread
     struct token          *token;         /* security token associated with this thread */
     int                    esync_fd;      /* esync file descriptor (signalled on exit) */
     int                    esync_apc_fd;  /* esync apc fd (signalled when APCs are present) */
+    struct timeout_user   *exit_poll;     /* poll if the thread/process has exited already */
 };
 
 struct thread_snapshot
