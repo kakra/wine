@@ -1458,7 +1458,7 @@ static void test_set_getsockopt(void)
     value = 0xdeadbeef;
     err = getsockopt(s, SOL_SOCKET, SO_SNDBUF, (char *)&value, &size);
     ok( !err, "getsockopt(SO_SNDBUF) failed error: %u\n", WSAGetLastError() );
-    todo_wine ok( value == 4096, "expected 4096, got %u\n", value );
+    ok( value == 4096, "expected 4096, got %u\n", value );
 
     /* SO_RCVBUF */
     value = 4096;
@@ -1468,7 +1468,7 @@ static void test_set_getsockopt(void)
     value = 0xdeadbeef;
     err = getsockopt(s, SOL_SOCKET, SO_RCVBUF, (char *)&value, &size);
     ok( !err, "getsockopt(SO_RCVBUF) failed error: %u\n", WSAGetLastError() );
-    todo_wine ok( value == 4096, "expected 4096, got %u\n", value );
+    ok( value == 4096, "expected 4096, got %u\n", value );
 
     /* SO_LINGER */
     for( i = 0; i < ARRAY_SIZE(linger_testvals);i++) {
