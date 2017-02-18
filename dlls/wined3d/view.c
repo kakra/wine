@@ -745,6 +745,8 @@ static void wined3d_shader_resource_view_cs_init(void *object)
                     debug_d3dformat(resource->format->id), debug_d3dformat(view_format->id));
         }
     }
+
+    wined3d_resource_release(resource);
 }
 
 static HRESULT wined3d_shader_resource_view_init(struct wined3d_shader_resource_view *view,
@@ -761,6 +763,7 @@ static HRESULT wined3d_shader_resource_view_init(struct wined3d_shader_resource_
 
     wined3d_resource_incref(view->resource = resource);
 
+    wined3d_resource_acquire(resource);
     wined3d_cs_init_object(resource->device->cs, wined3d_shader_resource_view_cs_init, view);
 
     return WINED3D_OK;
@@ -1113,6 +1116,8 @@ static void wined3d_unordered_access_view_cs_init(void *object)
                     desc, texture, view->format);
         }
     }
+
+    wined3d_resource_release(resource);
 }
 
 static HRESULT wined3d_unordered_access_view_init(struct wined3d_unordered_access_view *view,
@@ -1129,6 +1134,7 @@ static HRESULT wined3d_unordered_access_view_init(struct wined3d_unordered_acces
 
     wined3d_resource_incref(view->resource = resource);
 
+    wined3d_resource_acquire(resource);
     wined3d_cs_init_object(resource->device->cs, wined3d_unordered_access_view_cs_init, view);
 
     return WINED3D_OK;
