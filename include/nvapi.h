@@ -47,6 +47,22 @@ typedef unsigned int NvU32;
 #define NVAPI_ADVANCED_DISPLAY_HEADS 4
 #define NVAPI_MAX_DISPLAYS (NVAPI_PHYSICAL_GPUS * NVAPI_ADVANCED_DISPLAY_HEADS)
 
+#ifdef __x86_64__
+
+#define FAKE_PHYSICAL_GPU ((NvPhysicalGpuHandle)0xffffffffdead0001)
+#define FAKE_DISPLAY ((NvDisplayHandle)0xffffffffdead0002)
+#define FAKE_LOGICAL_GPU ((NvLogicalGpuHandle)0xffffffffdead0003)
+#define FAKE_DISPLAY_ID ((NvU32)0xffffffffdead0004)
+
+#else
+
+#define FAKE_PHYSICAL_GPU ((NvPhysicalGpuHandle)0xdead0001)
+#define FAKE_DISPLAY ((NvDisplayHandle)0xdead0002)
+#define FAKE_LOGICAL_GPU ((NvLogicalGpuHandle)0xdead0003)
+#define FAKE_DISPLAY_ID ((NvU32)0xdead0004)
+
+#endif
+
 typedef char NvAPI_ShortString[NVAPI_SHORT_STRING_MAX];
 
 #define MAKE_NVAPI_VERSION(type,version) (NvU32)(sizeof(type) | ((version)<<16))
