@@ -36,11 +36,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(nvapi);
 
-#define FAKE_PHYSICAL_GPU ((NvPhysicalGpuHandle)0xdead0001)
-#define FAKE_DISPLAY ((NvDisplayHandle)0xdead0002)
-#define FAKE_LOGICAL_GPU ((NvLogicalGpuHandle)0xdead0003)
-#define FAKE_DISPLAY_ID ((NvU32)0xdead0004)
-
 #if defined(__i386__) || defined(__x86_64__)
 
 static NvAPI_Status CDECL unimplemented_stub(unsigned int offset)
