@@ -4129,7 +4129,7 @@ static BOOL CRYPT_AsnDecodeOctets(const BYTE *pbEncoded,
 static BOOL CRYPT_AsnDecodeOctetStringInternal(const BYTE *encoded, DWORD encoded_size,
     DWORD flags, void *buf, DWORD *buf_size, DWORD *ret_decoded)
 {
-    DWORD decoded = 0, indefinite_len_depth = 0, len_size, len, bytes_needed;
+    DWORD decoded = 0, indefinite_len_depth = 0, len_size, len = 0, bytes_needed;
     CRYPT_DATA_BLOB *blob;
     const BYTE *string;
 

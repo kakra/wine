@@ -2574,7 +2574,7 @@ static BOOL WINAPI CRYPT_AsnEncodeAltName(DWORD dwCertEncodingType,
          */
         for (i = 0, dataLen = 0; ret && i < info->cAltEntry; i++)
         {
-            DWORD len;
+            DWORD len = 0;
 
             ret = CRYPT_AsnEncodeAltNameEntry(dwCertEncodingType, NULL,
              &info->rgAltEntry[i], 0, NULL, NULL, &len);
@@ -3782,7 +3782,7 @@ static BOOL WINAPI CRYPT_AsnEncodeCRLDistPoints(DWORD dwCertEncodingType,
             ret = TRUE;
             for (i = 0, dataLen = 0; ret && i < info->cDistPoint; i++)
             {
-                DWORD len;
+                DWORD len = 0;
 
                 ret = CRYPT_AsnEncodeDistPoint(&info->rgDistPoint[i], NULL,
                  &len);
