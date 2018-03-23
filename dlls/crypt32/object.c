@@ -1360,7 +1360,7 @@ static BOOL CRYPT_FormatAltNameEntry(DWORD dwFormatStrType, DWORD indentLevel,
 static BOOL CRYPT_FormatAltNameInfo(DWORD dwFormatStrType, DWORD indentLevel,
  const CERT_ALT_NAME_INFO *name, LPWSTR str, DWORD *pcbStr)
 {
-    DWORD i, size, bytesNeeded = 0;
+    DWORD i, size = 0, bytesNeeded = 0;
     BOOL ret = TRUE;
     LPCWSTR sep;
     DWORD sepLen;
