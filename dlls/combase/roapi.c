@@ -15,11 +15,13 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
-
+#define COBJMACROS
 #include "objbase.h"
+#include "initguid.h"
 #include "roapi.h"
 #include "roparameterizediid.h"
 #include "hstring.h"
+
 
 #include "wine/debug.h"
 
@@ -68,4 +70,86 @@ HRESULT WINAPI RoGetParameterizedTypeInstanceIID(UINT32 name_element_count, cons
     if (iid) *iid = GUID_NULL;
     if (hiid) *hiid = INVALID_HANDLE_VALUE;
     return E_NOTIMPL;
+}
+
+/***********************************************************************
+ *      RoActivateInstance (combase.@)
+ */
+HRESULT WINAPI RoActivateInstance(HSTRING classid, IInspectable **instance)
+{
+    IActivationFactory *factory;
+    HRESULT hr;
+
+    FIXME("(%p, %p): semi-stub\n", classid, instance);
+
+    hr = RoGetActivationFactory(classid, &IID_IActivationFactory, (void **)&factory);
+    if (SUCCEEDED(hr))
+    {
+        hr = IActivationFactory_ActivateInstance(factory, instance);
+        IActivationFactory_Release(factory);
+    }
+
+    return hr;
+}
+
+/***********************************************************************
+ *      RoGetApartmentIdentifier (combase.@)
+ */
+HRESULT WINAPI RoGetApartmentIdentifier(UINT64 *identifier)
+{
+    FIXME("(%p): stub\n", identifier);
+
+    if (!identifier)
+        return E_INVALIDARG;
+
+    *identifier = 0xdeadbeef;
+    return S_OK;
+}
+
+/***********************************************************************
+ *      RoRegisterForApartmentShutdown (combase.@)
+ */
+HRESULT WINAPI RoRegisterForApartmentShutdown(IApartmentShutdown *callback,
+        UINT64 *identifier, APARTMENT_SHUTDOWN_REGISTRATION_COOKIE *cookie)
+{
+    HRESULT hr;
+
+    FIXME("(%p, %p, %p): stub\n", callback, identifier, cookie);
+
+    hr = RoGetApartmentIdentifier(identifier);
+    if (FAILED(hr))
+        return hr;
+
+    *cookie = (void *)0xcafecafe;
+    return S_OK;
+}
+
+/***********************************************************************
+ *      RoGetServerActivatableClasses (combase.@)
+ */
+HRESULT WINAPI RoGetServerActivatableClasses(HSTRING name, HSTRING **classes, DWORD *count)
+{
+    FIXME("(%p, %p, %p): stub\n", name, classes, count);
+
+    *count = 0;
+    return S_OK;
+}
+
+/***********************************************************************
+ *      RoRegisterActivationFactories (combase.@)
+ */
+HRESULT WINAPI RoRegisterActivationFactories(HSTRING *classes, PFNGETACTIVATIONFACTORY *callbacks,
+                                             UINT32 count, RO_REGISTRATION_COOKIE *cookie)
+{
+    FIXME("(%p, %p, %d, %p): stub\n", classes, callbacks, count, cookie);
+
+    return S_OK;
+}
+
+/***********************************************************************
+ *      CleanupTlsOleState (combase.@)
+ */
+void WINAPI CleanupTlsOleState(void *unknown)
+{
+    FIXME("(%p): stub\n", unknown);
 }

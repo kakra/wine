@@ -361,8 +361,11 @@ static void LISTBOX_UpdatePage( LB_DESCR *descr )
 static void LISTBOX_UpdateSize( LB_DESCR *descr )
 {
     RECT rect;
+    LONG style = GetWindowLongW( descr->self, GWL_STYLE );
 
     GetClientRect( descr->self, &rect );
+    if (style & WS_HSCROLL)
+        rect.bottom += GetSystemMetrics(SM_CYHSCROLL);
     descr->width  = rect.right - rect.left;
     descr->height = rect.bottom - rect.top;
     if (!(descr->style & LBS_NOINTEGRALHEIGHT) && !(descr->style & LBS_OWNERDRAWVARIABLE))
@@ -828,14 +831,15 @@ static INT LISTBOX_FindStringPos( LB_DESCR *descr, LPCWSTR str, BOOL exact )
 {
     INT index, min, max, res;
 
-    if (!(descr->style & LBS_SORT)) return -1;  /* Add it at the end */
+    if (!descr->nb_items || !(descr->style & LBS_SORT)) return -1;  /* Add it at the end */
+
     min = 0;
-    max = descr->nb_items;
-    while (min != max)
+    max = descr->nb_items - 1;
+    while (min <= max)
     {
         index = (min + max) / 2;
         if (HAS_STRINGS(descr))
-            res = LISTBOX_lstrcmpiW( descr->locale, str, descr->items[index].str);
+            res = LISTBOX_lstrcmpiW( descr->locale, descr->items[index].str, str );
         else
         {
             COMPAREITEMSTRUCT cis;
@@ -846,18 +850,18 @@ static INT LISTBOX_FindStringPos( LB_DESCR *descr, LPCWSTR str, BOOL exact )
             cis.hwndItem   = descr->self;
             /* note that some application (MetaStock) expects the second item
              * to be in the listbox */
-            cis.itemID1    = -1;
-            cis.itemData1  = (ULONG_PTR)str;
-            cis.itemID2    = index;
-            cis.itemData2  = descr->items[index].data;
+            cis.itemID1    = index;
+            cis.itemData1  = descr->items[index].data;
+            cis.itemID2    = -1;
+            cis.itemData2  = (ULONG_PTR)str;
             cis.dwLocaleId = descr->locale;
             res = SendMessageW( descr->owner, WM_COMPAREITEM, id, (LPARAM)&cis );
         }
         if (!res) return index;
-        if (res < 0) max = index;
+        if (res > 0) max = index - 1;
         else min = index + 1;
     }
-    return exact ? -1 : max;
+    return exact ? -1 : min;
 }
 
 
@@ -1553,7 +1557,7 @@ static LRESULT LISTBOX_InsertItem( LB_DESCR *descr, INT index,
         mis.CtlType    = ODT_LISTBOX;
         mis.CtlID      = id;
         mis.itemID     = index;
-        mis.itemData   = data;
+        mis.itemData   = str ? (ULONG_PTR)str : data;
         mis.itemHeight = descr->item_height;
         SendMessageW( descr->owner, WM_MEASUREITEM, id, (LPARAM)&mis );
         item->height = mis.itemHeight ? mis.itemHeight : 1;

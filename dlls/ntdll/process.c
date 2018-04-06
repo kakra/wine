@@ -99,6 +99,24 @@ HANDLE CDECL __wine_make_process_system(void)
     return ret;
 }
 
+/***********************************************************************
+ *           __wine_create_default_token   (NTDLL.@)
+ *
+ * Creates a default limited or admin token.
+ */
+HANDLE CDECL __wine_create_default_token( BOOL admin )
+{
+    HANDLE ret = NULL;
+    SERVER_START_REQ( create_token )
+    {
+        req->admin = admin;
+        if (!wine_server_call( req ))
+            ret = wine_server_ptr_handle( reply->token );
+    }
+    SERVER_END_REQ;
+    return ret;
+}
+
 static UINT process_error_mode;
 
 #define UNIMPLEMENTED_INFO_CLASS(c) \
@@ -166,7 +184,7 @@ static void fill_VM_COUNTERS(VM_COUNTERS* pvmi)
 
 static void fill_VM_COUNTERS(VM_COUNTERS* pvmi)
 {
-    /* FIXME : real data */
+    read_process_memory_stats(getpid(), pvmi);
 }
 
 #endif
@@ -193,7 +211,6 @@ NTSTATUS WINAPI NtQueryInformationProcess(
 
     switch (ProcessInformationClass) 
     {
-    UNIMPLEMENTED_INFO_CLASS(ProcessQuotaLimits);
     UNIMPLEMENTED_INFO_CLASS(ProcessBasePriority);
     UNIMPLEMENTED_INFO_CLASS(ProcessRaisePriority);
     UNIMPLEMENTED_INFO_CLASS(ProcessExceptionPort);
@@ -253,6 +270,36 @@ NTSTATUS WINAPI NtQueryInformationProcess(
             else
             {
                 len = sizeof(PROCESS_BASIC_INFORMATION);
+                ret = STATUS_INFO_LENGTH_MISMATCH;
+            }
+        }
+        break;
+    case ProcessQuotaLimits:
+        {
+            QUOTA_LIMITS pqli;
+
+            if (ProcessInformationLength >= sizeof(QUOTA_LIMITS))
+            {
+                if (!ProcessInformation)
+                    ret = STATUS_ACCESS_VIOLATION;
+                else if (!ProcessHandle)
+                    ret = STATUS_INVALID_HANDLE;
+                else
+                {
+                    /* FIXME : real data */
+                    memset(&pqli, 0, sizeof(QUOTA_LIMITS));
+
+                    memcpy(ProcessInformation, &pqli, sizeof(QUOTA_LIMITS));
+
+                    len = sizeof(QUOTA_LIMITS);
+                }
+
+                if (ProcessInformationLength > sizeof(QUOTA_LIMITS))
+                    ret = STATUS_INFO_LENGTH_MISMATCH;
+            }
+            else
+            {
+                len = sizeof(QUOTA_LIMITS);
                 ret = STATUS_INFO_LENGTH_MISMATCH;
             }
         }
@@ -728,8 +775,18 @@ NTSTATUS  WINAPI NtOpenProcess(PHANDLE handle, ACCESS_MASK access,
  */
 NTSTATUS WINAPI NtResumeProcess( HANDLE handle )
 {
-    FIXME("stub: %p\n", handle);
-    return STATUS_NOT_IMPLEMENTED;
+    NTSTATUS    status;
+
+    TRACE("(%p)\n", handle);
+
+    SERVER_START_REQ( resume_process )
+    {
+        req->handle = wine_server_obj_handle( handle );
+        status = wine_server_call( req );
+    }
+    SERVER_END_REQ;
+
+    return status;
 }
 
 /******************************************************************************
@@ -738,6 +795,16 @@ NTSTATUS WINAPI NtResumeProcess( HANDLE handle )
  */
 NTSTATUS WINAPI NtSuspendProcess( HANDLE handle )
 {
-    FIXME("stub: %p\n", handle);
-    return STATUS_NOT_IMPLEMENTED;
+    NTSTATUS    status;
+
+    TRACE("(%p)\n", handle);
+
+    SERVER_START_REQ( suspend_process )
+    {
+        req->handle = wine_server_obj_handle( handle );
+        status = wine_server_call( req );
+    }
+    SERVER_END_REQ;
+
+    return status;
 }
