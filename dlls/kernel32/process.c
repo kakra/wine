@@ -3792,6 +3792,13 @@ cleanup:
     return !status;
 }
 
+BOOL WINAPI SetProcessAffinityUpdateMode(HANDLE hProcess, DWORD flags)
+{
+    FIXME("(%p,0x%08x): stub\n", hProcess, flags);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
 /***********************************************************************
  *           K32GetProcessImageFileNameA (KERNEL32.@)
  */
