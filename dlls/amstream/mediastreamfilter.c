@@ -42,7 +42,7 @@ typedef struct {
 
 static inline IMediaStreamFilterImpl *impl_from_IMediaStreamFilter(IMediaStreamFilter *iface)
 {
-    return CONTAINING_RECORD((IBaseFilter *)iface, IMediaStreamFilterImpl, filter.IBaseFilter_iface);
+    return CONTAINING_RECORD(iface, IMediaStreamFilterImpl, filter);
 }
 
 /*** IUnknown methods ***/

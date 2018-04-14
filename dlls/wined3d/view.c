@@ -59,11 +59,6 @@ static GLenum get_texture_view_target(const struct wined3d_gl_info *gl_info,
         {GL_TEXTURE_2D_MULTISAMPLE,       WINED3D_VIEW_TEXTURE_ARRAY, GL_TEXTURE_2D_MULTISAMPLE_ARRAY},
         {GL_TEXTURE_2D_MULTISAMPLE_ARRAY, 0,                          GL_TEXTURE_2D_MULTISAMPLE},
         {GL_TEXTURE_2D_MULTISAMPLE_ARRAY, WINED3D_VIEW_TEXTURE_ARRAY, GL_TEXTURE_2D_MULTISAMPLE_ARRAY},
-
-        {GL_TEXTURE_1D,       0,                          GL_TEXTURE_1D},
-        {GL_TEXTURE_1D,       WINED3D_VIEW_TEXTURE_ARRAY, GL_TEXTURE_1D_ARRAY},
-        {GL_TEXTURE_1D_ARRAY, 0,                          GL_TEXTURE_1D},
-        {GL_TEXTURE_1D_ARRAY, WINED3D_VIEW_TEXTURE_ARRAY, GL_TEXTURE_1D_ARRAY},
     };
     unsigned int i;
 
@@ -750,8 +745,6 @@ static void wined3d_shader_resource_view_cs_init(void *object)
                     debug_d3dformat(resource->format->id), debug_d3dformat(view_format->id));
         }
     }
-
-    wined3d_resource_release(resource);
 }
 
 static HRESULT wined3d_shader_resource_view_init(struct wined3d_shader_resource_view *view,
@@ -768,7 +761,6 @@ static HRESULT wined3d_shader_resource_view_init(struct wined3d_shader_resource_
 
     wined3d_resource_incref(view->resource = resource);
 
-    wined3d_resource_acquire(resource);
     wined3d_cs_init_object(resource->device->cs, wined3d_shader_resource_view_cs_init, view);
 
     return WINED3D_OK;
@@ -1121,8 +1113,6 @@ static void wined3d_unordered_access_view_cs_init(void *object)
                     desc, texture, view->format);
         }
     }
-
-    wined3d_resource_release(resource);
 }
 
 static HRESULT wined3d_unordered_access_view_init(struct wined3d_unordered_access_view *view,
@@ -1139,7 +1129,6 @@ static HRESULT wined3d_unordered_access_view_init(struct wined3d_unordered_acces
 
     wined3d_resource_incref(view->resource = resource);
 
-    wined3d_resource_acquire(resource);
     wined3d_cs_init_object(resource->device->cs, wined3d_unordered_access_view_cs_init, view);
 
     return WINED3D_OK;

@@ -1262,7 +1262,7 @@ done:
  */
 BOOL CDECL macdrv_GetMonitorInfo(HMONITOR monitor, LPMONITORINFO info)
 {
-    static const WCHAR adapter_name[] = { '\\','\\','.','\\','D','I','S','P','L','A','Y','%','d',0 };
+    static const WCHAR adapter_name[] = { '\\','\\','.','\\','D','I','S','P','L','A','Y','1',0 };
     struct macdrv_display *displays;
     int num_displays;
     CGDirectDisplayID display_id;
@@ -1292,12 +1292,10 @@ BOOL CDECL macdrv_GetMonitorInfo(HMONITOR monitor, LPMONITORINFO info)
         info->dwFlags = (i == 0) ? MONITORINFOF_PRIMARY : 0;
 
         if (info->cbSize >= sizeof(MONITORINFOEXW))
-            snprintfW(((MONITORINFOEXW*)info)->szDevice, sizeof(((MONITORINFOEXW*)info)->szDevice) / sizeof(WCHAR),
-                      adapter_name, i + 1);
+            lstrcpyW(((MONITORINFOEXW*)info)->szDevice, adapter_name);
 
-        TRACE(" -> rcMonitor %s rcWork %s dwFlags %08x szDevice %s\n", wine_dbgstr_rect(&info->rcMonitor),
-              wine_dbgstr_rect(&info->rcWork), info->dwFlags,
-              info->cbSize >= sizeof(MONITORINFOEXW) ? debugstr_w(((MONITORINFOEXW*)info)->szDevice) : "n/a");
+        TRACE(" -> rcMonitor %s rcWork %s dwFlags %08x\n", wine_dbgstr_rect(&info->rcMonitor),
+              wine_dbgstr_rect(&info->rcWork), info->dwFlags);
     }
     else
     {

@@ -258,7 +258,6 @@ BOOL WINAPI CryptProtectMemory(void *data, DWORD len, DWORD flags)
 
 BOOL WINAPI CryptUnprotectMemory(void *data, DWORD len, DWORD flags)
 {
-    static int fixme_once;
-    if (!fixme_once++) FIXME("(%p %u %08x): stub\n", data, len, flags);
+    FIXME("(%p %u %08x): stub\n", data, len, flags);
     return TRUE;
 }

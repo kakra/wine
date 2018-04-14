@@ -209,7 +209,7 @@
 @ stdcall CreateProcessAsUserA(long str str ptr ptr long long ptr str ptr ptr) advapi32.CreateProcessAsUserA
 @ stdcall CreateProcessAsUserW(long wstr wstr ptr ptr long long ptr wstr ptr ptr) advapi32.CreateProcessAsUserW
 # @ stub CreateProcessInternalA
-@ stdcall CreateProcessInternalW(long wstr wstr ptr ptr long long ptr wstr ptr ptr ptr) kernel32.CreateProcessInternalW
+# @ stub CreateProcessInternalW
 @ stdcall CreateProcessW(wstr wstr ptr ptr long long ptr wstr ptr ptr) kernel32.CreateProcessW
 @ stdcall CreateRemoteThread(long ptr long ptr long long ptr) kernel32.CreateRemoteThread
 @ stdcall CreateRemoteThreadEx(long ptr long ptr ptr long ptr ptr) kernel32.CreateRemoteThreadEx
@@ -1037,7 +1037,7 @@
 # @ stub PathCchCanonicalize
 # @ stub PathCchCanonicalizeEx
 # @ stub PathCchCombine
-@ stdcall PathCchCombineEx(ptr long ptr ptr long)
+# @ stub PathCchCombineEx
 # @ stub PathCchFindExtension
 # @ stub PathCchIsRoot
 # @ stub PathCchRemoveBackslash

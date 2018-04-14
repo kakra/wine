@@ -23,7 +23,6 @@
 
 #include <ntdef.h>
 #include <windef.h>
-#include <apiset.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -280,7 +279,7 @@ typedef struct _PEB
     ULONG                        EnvironmentUpdateCount;            /* 028/050 */
     PVOID                        KernelCallbackTable;               /* 02c/058 */
     ULONG                        Reserved[2];                       /* 030/060 */
-    PAPI_SET_NAMESPACE_ARRAY     ApiSetMap;                         /* 038/068 */
+    PVOID /*PPEB_FREE_BLOCK*/    FreeList;                          /* 038/068 */
     ULONG                        TlsExpansionCounter;               /* 03c/070 */
     PRTL_BITMAP                  TlsBitmap;                         /* 040/078 */
     ULONG                        TlsBitmapBits[2];                  /* 044/080 */
@@ -351,10 +350,10 @@ typedef struct _TEB
     PVOID                        CsrClientThread;                   /* 03c/0070 */
     PVOID                        Win32ThreadInfo;                   /* 040/0078 */
     ULONG                        Win32ClientInfo[31];               /* 044/0080 used for user32 private data in Wine */
-    PVOID                        WOW32Reserved;                     /* 0c0/0100 used for ntdll syscall thunks */
+    PVOID                        WOW32Reserved;                     /* 0c0/0100 */
     ULONG                        CurrentLocale;                     /* 0c4/0108 */
     ULONG                        FpSoftwareStatusRegister;          /* 0c8/010c */
-    PVOID                        SystemReserved1[54];               /* 0cc/0110 used for krnl386.exe16 private data in Wine */
+    PVOID                        SystemReserved1[54];               /* 0cc/0110 used for kernel32 private data in Wine */
     LONG                         ExceptionCode;                     /* 1a4/02c0 */
     ACTIVATION_CONTEXT_STACK     ActivationContextStack;            /* 1a8/02c8 */
     BYTE                         SpareBytes1[24];                   /* 1bc/02e8 */
@@ -391,11 +390,11 @@ typedef struct _TEB
     PVOID                        WinSockData;                       /* f6c/1738 */
     ULONG                        GdiBatchCount;                     /* f70/1740 */
     ULONG                        Spare2;                            /* f74/1744 */
-    PVOID                        Spare3;                            /* f78/1748 used for fakedll thunks */
+    PVOID                        Spare3;                            /* f78/1748 */
     PVOID                        Spare4;                            /* f7c/1750 */
     PVOID                        ReservedForOle;                    /* f80/1758 */
     ULONG                        WaitingOnLoaderLock;               /* f84/1760 */
-    PVOID                        Reserved5[3];                      /* f88/1768 used for x86_64 OSX and wineserver shared memory */
+    PVOID                        Reserved5[3];                      /* f88/1768 */
     PVOID                       *TlsExpansionSlots;                 /* f94/1780 */
 #ifdef _WIN64
     PVOID                        DeallocationBStore;                /*    /1788 */
@@ -815,7 +814,7 @@ typedef enum _OBJECT_INFORMATION_CLASS {
     ObjectBasicInformation,
     ObjectNameInformation,
     ObjectTypeInformation,
-    ObjectTypesInformation,
+    ObjectAllInformation,
     ObjectDataInformation
 } OBJECT_INFORMATION_CLASS, *POBJECT_INFORMATION_CLASS;
 
@@ -930,34 +929,26 @@ typedef enum _SYSTEM_INFORMATION_CLASS {
     SystemVerifierInformation = 51,
     SystemAddVerifier = 52,
     SystemSessionProcessesInformation	= 53,
-    SystemLoadGdiDriverInSystemSpace = 54,
-    SystemNumaProcessorMap = 55,
-    SystemPrefetcherInformation = 56,
-    SystemExtendedProcessInformation = 57,
+    Unknown54,
+    Unknown55,
+    Unknown56,
+    Unknown57,
     SystemRecommendedSharedDataAlignment = 58,
-    SystemComPlusPackage = 59,
-    SystemNumaAvailableMemory = 60,
-    SystemProcessorPowerInformation = 61,
-    SystemEmulationBasicInformation = 62,
-    SystemEmulationProcessorInformation = 63,
-    SystemExtendedHandleInformation = 64,
-    SystemLostDelayedWriteInformation = 65,
-    SystemBigPoolInformation = 66,
-    SystemSessionPoolTagInformation = 67,
-    SystemSessionMappedViewInformation = 68,
-    SystemHotpatchInformation = 69,
-    SystemObjectSecurityMode = 70,
-    SystemWatchdogTimerHandler = 71,
-    SystemWatchdogTimerInformation = 72,
+    Unknown59,
+    Unknown60,
+    Unknown61,
+    Unknown62,
+    Unknown63,
+    Unknown64,
+    Unknown65,
+    Unknown66,
+    Unknown67,
+    Unknown68,
+    Unknown69,
+    Unknown70,
+    Unknown71,
+    Unknown72,
     SystemLogicalProcessorInformation = 73,
-    SystemWow64SharedInformation = 74,
-    SystemRegisterFirmwareTableInformationHandler = 75,
-    SystemFirmwareTableInformation = 76,
-    SystemModuleInformationEx = 77,
-    SystemVerifierTriageInformation = 78,
-    SystemSuperfetchInformation = 79,
-    SystemMemoryListInformation = 80,
-    SystemFileCacheInformationEx = 81,
     SystemLogicalProcessorInformationEx = 107,
     SystemInformationClassMax
 } SYSTEM_INFORMATION_CLASS, *PSYSTEM_INFORMATION_CLASS;
@@ -1226,34 +1217,8 @@ typedef struct _OBJECT_NAME_INFORMATION {
 
 typedef struct __OBJECT_TYPE_INFORMATION {
     UNICODE_STRING TypeName;
-    ULONG TotalNumberOfObjects;
-    ULONG TotalNumberOfHandles;
-    ULONG TotalPagedPoolUsage;
-    ULONG TotalNonPagedPoolUsage;
-    ULONG TotalNamePoolUsage;
-    ULONG TotalHandleTableUsage;
-    ULONG HighWaterNumberOfObjects;
-    ULONG HighWaterNumberOfHandles;
-    ULONG HighWaterPagedPoolUsage;
-    ULONG HighWaterNonPagedPoolUsage;
-    ULONG HighWaterNamePoolUsage;
-    ULONG HighWaterHandleTableUsage;
-    ULONG InvalidAttributes;
-    GENERIC_MAPPING GenericMapping;
-    ULONG ValidAccessMask;
-    BOOLEAN SecurityRequired;
-    BOOLEAN MaintainHandleCount;
-    UCHAR TypeIndex;
-    CHAR Reserved;
-    ULONG PoolType;
-    ULONG DefaultPagedPoolCharge;
-    ULONG DefaultNonPagedPoolCharge;
+    ULONG Reserved [22];
 } OBJECT_TYPE_INFORMATION, *POBJECT_TYPE_INFORMATION;
-
-typedef struct _OBJECT_TYPES_INFORMATION
-{
-    ULONG NumberOfTypes;
-} OBJECT_TYPES_INFORMATION, *POBJECT_TYPES_INFORMATION;
 
 typedef struct _PROCESS_BASIC_INFORMATION {
 #ifdef __WINESRC__
@@ -1485,27 +1450,6 @@ typedef struct _SYSTEM_HANDLE_INFORMATION {
     ULONG               Count;
     SYSTEM_HANDLE_ENTRY Handle[1];
 } SYSTEM_HANDLE_INFORMATION, *PSYSTEM_HANDLE_INFORMATION;
-
-/* System Information Class 0x40 */
-
-typedef struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX
-{
-    PVOID     Object;
-    ULONG_PTR UniqueProcessId;
-    ULONG_PTR HandleValue;
-    ULONG     GrantedAccess;
-    USHORT    CreatorBackTraceIndex;
-    USHORT    ObjectTypeIndex;
-    ULONG     HandleAttributes;
-    ULONG     Reserved;
-} SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX, *PSYSTEM_HANDLE_TABLE_ENTRY_INFO_EX;
-
-typedef struct _SYSTEM_HANDLE_INFORMATION_EX
-{
-    ULONG_PTR  Count;
-    ULONG_PTR  Reserved;
-    SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX Handle[1];
-} SYSTEM_HANDLE_INFORMATION_EX, *PSYSTEM_HANDLE_INFORMATION_EX;
 
 /* System Information Class 0x15 */
 
@@ -2211,46 +2155,11 @@ typedef struct _LDR_MODULE
     ULONG               Flags;
     SHORT               LoadCount;
     SHORT               TlsIndex;
-    LIST_ENTRY          HashLinks;
+    HANDLE              SectionHandle;
+    ULONG               CheckSum;
     ULONG               TimeDateStamp;
     HANDLE              ActivationContext;
-    PVOID               PatchInformation;
-    LIST_ENTRY          ForwarderLinks;
-    LIST_ENTRY          ServiceTagLinks;
-    LIST_ENTRY          StaticLinks;
-    PVOID               ContextInformation;
-    ULONG_PTR           OriginalBase;
-    LARGE_INTEGER       LoadTime;
-
-    /* Not part of Win7 but used by Wine */
-    HANDLE              SectionHandle;
 } LDR_MODULE, *PLDR_MODULE;
-
-typedef struct _LDR_DLL_LOADED_NOTIFICATION_DATA
-{
-    ULONG Flags;
-    PCUNICODE_STRING FullDllName;
-    PCUNICODE_STRING BaseDllName;
-    PVOID DllBase;
-    ULONG SizeOfImage;
-} LDR_DLL_LOADED_NOTIFICATION_DATA, *PLDR_DLL_LOADED_NOTIFICATION_DATA;
-
-typedef struct _LDR_DLL_UNLOADED_NOTIFICATION_DATA
-{
-    ULONG Flags;
-    PCUNICODE_STRING FullDllName;
-    PCUNICODE_STRING BaseDllName;
-    PVOID DllBase;
-    ULONG SizeOfImage;
-} LDR_DLL_UNLOADED_NOTIFICATION_DATA, *PLDR_DLL_UNLOADED_NOTIFICATION_DATA;
-
-typedef union _LDR_DLL_NOTIFICATION_DATA
-{
-    LDR_DLL_LOADED_NOTIFICATION_DATA Loaded;
-    LDR_DLL_UNLOADED_NOTIFICATION_DATA Unloaded;
-} LDR_DLL_NOTIFICATION_DATA, *PLDR_DLL_NOTIFICATION_DATA;
-
-typedef void (CALLBACK *PLDR_DLL_NOTIFICATION_FUNCTION)(ULONG, LDR_DLL_NOTIFICATION_DATA*, void*);
 
 /* those defines are (some of the) regular LDR_MODULE.Flags values */
 #define LDR_IMAGE_IS_DLL                0x00000004
@@ -2270,9 +2179,6 @@ typedef void (CALLBACK *PLDR_DLL_NOTIFICATION_FUNCTION)(ULONG, LDR_DLL_NOTIFICAT
 
 /* FIXME: to be checked */
 #define MAXIMUM_FILENAME_LENGTH 256
-
-#define LDR_DLL_NOTIFICATION_REASON_LOADED   1
-#define LDR_DLL_NOTIFICATION_REASON_UNLOADED 2
 
 typedef struct _SYSTEM_MODULE
 {
@@ -2389,7 +2295,6 @@ NTSYSAPI NTSTATUS  WINAPI NtDuplicateToken(HANDLE,ACCESS_MASK,POBJECT_ATTRIBUTES
 NTSYSAPI NTSTATUS  WINAPI NtEnumerateKey(HANDLE,ULONG,KEY_INFORMATION_CLASS,void *,DWORD,DWORD *);
 NTSYSAPI NTSTATUS  WINAPI NtEnumerateValueKey(HANDLE,ULONG,KEY_VALUE_INFORMATION_CLASS,PVOID,ULONG,PULONG);
 NTSYSAPI NTSTATUS  WINAPI NtExtendSection(HANDLE,PLARGE_INTEGER);
-NTSYSAPI NTSTATUS  WINAPI NtFilterToken(HANDLE,ULONG,TOKEN_GROUPS*,TOKEN_PRIVILEGES*,TOKEN_GROUPS*,HANDLE*);
 NTSYSAPI NTSTATUS  WINAPI NtFindAtom(const WCHAR*,ULONG,RTL_ATOM*);
 NTSYSAPI NTSTATUS  WINAPI NtFlushBuffersFile(HANDLE,IO_STATUS_BLOCK*);
 NTSYSAPI NTSTATUS  WINAPI NtFlushInstructionCache(HANDLE,LPCVOID,SIZE_T);

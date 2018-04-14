@@ -1252,9 +1252,6 @@ BOOL WINAPI ShowWindow( HWND hwnd, INT cmd )
     if ((cmd == SW_HIDE) && !(GetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE))
         return FALSE;
 
-    if ((cmd == SW_SHOW) && (GetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE))
-        return TRUE;
-
     return SendMessageW( hwnd, WM_WINE_SHOWWINDOW, cmd, 0 );
 }
 

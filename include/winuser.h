@@ -101,8 +101,6 @@ typedef void* HPOWERNOTIFY;
 #define WSF_VISIBLE     1
 #define DF_ALLOWOTHERACCOUNTHOOK  1
 
-#define CWF_CREATE_ONLY 0x01
-
 typedef struct tagUSEROBJECTFLAGS {
     BOOL fInherit;
     BOOL fReserved;

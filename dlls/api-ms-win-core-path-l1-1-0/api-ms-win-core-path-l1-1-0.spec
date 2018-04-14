@@ -8,7 +8,7 @@
 @ stub PathCchCanonicalize
 @ stub PathCchCanonicalizeEx
 @ stub PathCchCombine
-@ stdcall PathCchCombineEx(ptr long ptr ptr long) kernelbase.PathCchCombineEx
+@ stub PathCchCombineEx
 @ stub PathCchFindExtension
 @ stub PathCchIsRoot
 @ stub PathCchRemoveBackslash

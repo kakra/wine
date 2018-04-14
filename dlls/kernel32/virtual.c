@@ -650,72 +650,29 @@ BOOL WINAPI IsBadStringPtrW( LPCWSTR str, UINT_PTR max )
 }
 
 /***********************************************************************
- *           K32GetMappedFileNameW (KERNEL32.@)
+ *           K32GetMappedFileNameA (KERNEL32.@)
  */
-DWORD WINAPI K32GetMappedFileNameW(HANDLE process, LPVOID addr, LPWSTR file_name, DWORD size)
+DWORD WINAPI K32GetMappedFileNameA(HANDLE process, LPVOID lpv, LPSTR file_name, DWORD size)
 {
-    MEMORY_SECTION_NAME *name;
-    SIZE_T buf_len;
-    NTSTATUS status;
+    FIXME_(file)("(%p, %p, %p, %d): stub\n", process, lpv, file_name, size);
 
-    TRACE_(file)("(%p, %p, %p, %d)\n", process, addr, file_name, size);
+    if (file_name && size)
+        file_name[0] = '\0';
 
-    if (!file_name || !size)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-
-    buf_len = sizeof(*name) + size * sizeof(WCHAR);
-    name = HeapAlloc(GetProcessHeap(), 0, buf_len);
-    if (!name)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return 0;
-    }
-
-    status = NtQueryVirtualMemory(process, addr, MemorySectionName, name, buf_len, &buf_len);
-    if (status)
-    {
-        HeapFree(GetProcessHeap(), 0, name);
-        SetLastError(RtlNtStatusToDosError(status));
-        return 0;
-    }
-
-    memcpy(file_name, name->SectionFileName.Buffer, name->SectionFileName.MaximumLength);
-    buf_len = name->SectionFileName.Length;
-
-    HeapFree(GetProcessHeap(), 0, name);
-
-    return buf_len;
+    return 0;
 }
 
 /***********************************************************************
- *           K32GetMappedFileNameA (KERNEL32.@)
+ *           K32GetMappedFileNameW (KERNEL32.@)
  */
-DWORD WINAPI K32GetMappedFileNameA(HANDLE process, LPVOID addr, LPSTR file_name, DWORD size)
+DWORD WINAPI K32GetMappedFileNameW(HANDLE process, LPVOID lpv, LPWSTR file_name, DWORD size)
 {
-    WCHAR file_nameW[MAX_PATH];
-    DWORD ret;
+    FIXME_(file)("(%p, %p, %p, %d): stub\n", process, lpv, file_name, size);
 
-    TRACE_(file)("(%p, %p, %p, %d)\n", process, addr, file_name, size);
+    if (file_name && size)
+        file_name[0] = '\0';
 
-    if (!file_name || !size)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-
-    ret = K32GetMappedFileNameW(process, addr, file_nameW, MAX_PATH);
-    if (ret)
-    {
-        ret = FILE_name_WtoA(file_nameW, -1, file_name, size);
-        if (ret > 1)
-            ret--; /* don't account for terminating NUL */
-        else
-            file_name[0] = 0;
-    }
-    return ret;
+    return 0;
 }
 
 /***********************************************************************

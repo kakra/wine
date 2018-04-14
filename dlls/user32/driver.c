@@ -136,7 +136,6 @@ static const USER_DRIVER *load_driver(void)
         GET_USER_FUNC(MsgWaitForMultipleObjectsEx);
         GET_USER_FUNC(ReleaseDC);
         GET_USER_FUNC(ScrollDC);
-        GET_USER_FUNC(SetActiveWindow);
         GET_USER_FUNC(SetCapture);
         GET_USER_FUNC(SetFocus);
         GET_USER_FUNC(SetLayeredWindowAttributes);
@@ -152,7 +151,6 @@ static const USER_DRIVER *load_driver(void)
         GET_USER_FUNC(WindowPosChanging);
         GET_USER_FUNC(WindowPosChanged);
         GET_USER_FUNC(SystemParametersInfo);
-        GET_USER_FUNC(UpdateCandidatePos);
         GET_USER_FUNC(ThreadDetach);
 #undef GET_USER_FUNC
     }
@@ -426,10 +424,6 @@ static BOOL CDECL nulldrv_ScrollDC( HDC hdc, INT dx, INT dy, HRGN update )
                    hdc, rect.left - dx, rect.top - dy, SRCCOPY );
 }
 
-static void CDECL nulldrv_SetActiveWindow( HWND hwnd )
-{
-}
-
 static void CDECL nulldrv_SetCapture( HWND hwnd, UINT flags )
 {
 }
@@ -501,10 +495,6 @@ static BOOL CDECL nulldrv_SystemParametersInfo( UINT action, UINT int_param, voi
     return FALSE;
 }
 
-static void CDECL nulldrv_UpdateCandidatePos( HWND hwnd, const RECT *caret_rect )
-{
-}
-
 static void CDECL nulldrv_ThreadDetach( void )
 {
 }
@@ -548,7 +538,6 @@ static USER_DRIVER null_driver =
     nulldrv_MsgWaitForMultipleObjectsEx,
     nulldrv_ReleaseDC,
     nulldrv_ScrollDC,
-    nulldrv_SetActiveWindow,
     nulldrv_SetCapture,
     nulldrv_SetFocus,
     nulldrv_SetLayeredWindowAttributes,
@@ -565,8 +554,6 @@ static USER_DRIVER null_driver =
     nulldrv_WindowPosChanged,
     /* system parameters */
     nulldrv_SystemParametersInfo,
-    /* candidate pos functions */
-    nulldrv_UpdateCandidatePos,
     /* thread management */
     nulldrv_ThreadDetach
 };
@@ -733,11 +720,6 @@ static BOOL CDECL loaderdrv_UpdateLayeredWindow( HWND hwnd, const UPDATELAYEREDW
     return load_driver()->pUpdateLayeredWindow( hwnd, info, window_rect );
 }
 
-static void CDECL loaderdrv_UpdateCandidatePos( HWND hwnd, const RECT *caret_rect )
-{
-    load_driver()->pUpdateCandidatePos( hwnd, caret_rect );
-}
-
 static USER_DRIVER lazy_load_driver =
 {
     /* keyboard functions */
@@ -777,7 +759,6 @@ static USER_DRIVER lazy_load_driver =
     nulldrv_MsgWaitForMultipleObjectsEx,
     nulldrv_ReleaseDC,
     nulldrv_ScrollDC,
-    nulldrv_SetActiveWindow,
     nulldrv_SetCapture,
     nulldrv_SetFocus,
     loaderdrv_SetLayeredWindowAttributes,
@@ -794,8 +775,6 @@ static USER_DRIVER lazy_load_driver =
     nulldrv_WindowPosChanged,
     /* system parameters */
     nulldrv_SystemParametersInfo,
-    /* candidate pos functions */
-    loaderdrv_UpdateCandidatePos,
     /* thread management */
     nulldrv_ThreadDetach
 };

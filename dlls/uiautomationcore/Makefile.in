@@ -1,5 +1,4 @@
 MODULE = uiautomationcore.dll
-IMPORTS   = uuid
 
 C_SRCS = \
 	uia_main.c

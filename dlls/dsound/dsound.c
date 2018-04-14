@@ -181,8 +181,6 @@ static HRESULT DirectSoundDevice_Create(DirectSoundDevice ** ppDevice)
 
     RtlInitializeResource(&(device->buffer_list_lock));
 
-    init_eax_device(device);
-
    *ppDevice = device;
 
     return DS_OK;
@@ -198,9 +196,7 @@ static ULONG DirectSoundDevice_AddRef(DirectSoundDevice * device)
 static ULONG DirectSoundDevice_Release(DirectSoundDevice * device)
 {
     HRESULT hr;
-    ULONG ref;
-    Sleep(100);
-    ref = InterlockedDecrement(&(device->ref));
+    ULONG ref = InterlockedDecrement(&(device->ref));
     TRACE("(%p) ref was %u\n", device, ref + 1);
     if (!ref) {
         int i;
@@ -238,8 +234,6 @@ static ULONG DirectSoundDevice_Release(DirectSoundDevice * device)
             IAudioStreamVolume_Release(device->volume);
         if(device->mmdevice)
             IMMDevice_Release(device->mmdevice);
-
-        HeapFree(GetProcessHeap(), 0, device->dsp_buffer);
         HeapFree(GetProcessHeap(), 0, device->tmp_buffer);
         HeapFree(GetProcessHeap(), 0, device->cp_buffer);
         HeapFree(GetProcessHeap(), 0, device->buffer);
@@ -471,8 +465,6 @@ static HRESULT DirectSoundDevice_CreateSoundBuffer(
                 WARN("primarybuffer_create() failed\n");
         }
     } else {
-        IDirectSoundBufferImpl * dsb;
-
         if (dsbd->lpwfxFormat == NULL) {
             WARN("invalid parameter: dsbd->lpwfxFormat can't be NULL for "
                  "secondary buffer\n");
@@ -549,9 +541,8 @@ static HRESULT DirectSoundDevice_CreateSoundBuffer(
             return DSERR_INVALIDPARAM;
         }
 
-        hres = IDirectSoundBufferImpl_Create(device, &dsb, dsbd);
-        if (dsb) {
-            *ppdsb = (IDirectSoundBuffer*)&dsb->IDirectSoundBuffer8_iface;
+        hres = secondarybuffer_create(device, dsbd, ppdsb);
+        if (SUCCEEDED(hres)) {
             if (dsbd->dwFlags & DSBCAPS_LOCHARDWARE)
                 device->drvcaps.dwFreeHwMixingAllBuffers--;
         } else

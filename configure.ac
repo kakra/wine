@@ -56,7 +56,6 @@ AC_ARG_WITH(gsm,       AS_HELP_STRING([--without-gsm],[do not use libgsm (GSM 06
             [if test "x$withval" = "xno"; then ac_cv_header_gsm_h=no; ac_cv_header_gsm_gsm_h=no; fi])
 AC_ARG_WITH(gssapi,    AS_HELP_STRING([--without-gssapi],[do not use GSSAPI (Kerberos SSP support)]))
 AC_ARG_WITH(gstreamer, AS_HELP_STRING([--without-gstreamer],[do not use GStreamer (codecs support)]))
-AC_ARG_WITH(gtk3,      AS_HELP_STRING([--without-gtk3],[do not use gtk3 (gtk3 theming support)]))
 AC_ARG_WITH(hal,       AS_HELP_STRING([--without-hal],[do not use HAL (dynamic device support)]))
 AC_ARG_WITH(jpeg,      AS_HELP_STRING([--without-jpeg],[do not use JPEG]))
 AC_ARG_WITH(krb5,      AS_HELP_STRING([--without-krb5],[do not use krb5 (Kerberos)]))
@@ -69,14 +68,6 @@ AC_ARG_WITH(openal,    AS_HELP_STRING([--without-openal],[do not use OpenAL]),
 AC_ARG_WITH(opencl,    AS_HELP_STRING([--without-opencl],[do not use OpenCL]),
             [if test "x$withval" = "xno"; then ac_cv_header_CL_cl_h=no; ac_cv_header_OpenCL_opencl_h=no; fi])
 AC_ARG_WITH(opengl,    AS_HELP_STRING([--without-opengl],[do not use OpenGL]))
-AC_ARG_WITH(d3d9-nine, AS_HELP_STRING([--without-d3d9-nine],[do not build d3d9-nine.dll (Gallium Nine support)]),
-            [], [with_d3d9_nine=auto])
-AC_ARG_WITH(d3d9-nine-module, AS_HELP_STRING([--with-d3d9-nine-module],
-            [Gallium Nine module location. Can be 'manual' (path to be filled in a register), 'auto' (default. use pkgconfig to detect the location) or a path]),
-            [], [with_d3d9_nine_module=auto])
-AC_ARG_WITH(d3d9-nine-headers-path, AS_HELP_STRING([--with-d3d9-nine-headers-path],
-            [Gallium Nine headers location. Can be 'auto' (default. use pkgconfig to detect the location) or a path]),
-            [], [with_d3d9_nine_headers_path=auto])
 AC_ARG_WITH(osmesa,     AS_HELP_STRING([--without-osmesa],[do not use the OSMesa library]))
 AC_ARG_WITH(oss,       AS_HELP_STRING([--without-oss],[do not use the OSS sound support]))
 AC_ARG_WITH(pcap,      AS_HELP_STRING([--without-pcap],[do not use the Packet Capture library]),
@@ -91,7 +82,6 @@ AC_ARG_WITH(tiff,      AS_HELP_STRING([--without-tiff],[do not use TIFF]))
 AC_ARG_WITH(udev,      AS_HELP_STRING([--without-udev],[do not use udev (plug and play support)]))
 AC_ARG_WITH(v4l,       AS_HELP_STRING([--without-v4l],[do not use v4l1 (v4l support)]))
 AC_ARG_WITH(vulkan,    AS_HELP_STRING([--without-vulkan],[do not use Vulkan]))
-AC_ARG_WITH(xattr,     AS_HELP_STRING([--without-xattr],[do not use xattr (security attributes support)]))
 AC_ARG_WITH(xcomposite,AS_HELP_STRING([--without-xcomposite],[do not use the Xcomposite extension]),
             [if test "x$withval" = "xno"; then ac_cv_header_X11_extensions_Xcomposite_h=no; fi])
 AC_ARG_WITH(xcursor,   AS_HELP_STRING([--without-xcursor],[do not use the Xcursor extension]),
@@ -118,8 +108,6 @@ AC_ARG_WITH(xxf86vm,   AS_HELP_STRING([--without-xxf86vm],[do not use XFree vide
             [if test "x$withval" = "xno"; then ac_cv_header_X11_extensions_xf86vmode_h=no; ac_cv_header_X11_extensions_xf86vmproto_h=no; fi])
 AC_ARG_WITH(zlib,      AS_HELP_STRING([--without-zlib],[do not use Zlib (data compression)]),
             [if test "x$withval" = "xno"; then ac_cv_header_zlib_h=no; fi])
-AC_ARG_WITH(va,        AS_HELP_STRING([--without-va],[do not use VA (GPU video acceleration)]),
-            [if test "x$withval" = "xno"; then ac_cv_header_va_va_x11_h=no; fi])
 
 AC_ARG_WITH(wine-tools,AS_HELP_STRING([--with-wine-tools=DIR],[use Wine tools from directory DIR]))
 AC_ARG_WITH(wine64,    AS_HELP_STRING([--with-wine64=DIR],[use the 64-bit Wine in DIR for a Wow64 build]))
@@ -225,12 +213,6 @@ esac
 dnl enable_win16 defaults to yes on x86, to no on other CPUs
 enable_win16=${enable_win16:-no}
 enable_win64=${enable_win64:-no}
-if test "x$enable_win64" != "xyes"
-then
-  enable_win32="yes"
-else
-  enable_win32="no"
-fi
 
 dnl Disable winetest too if tests are disabled
 enable_winetest=${enable_winetest:-$enable_tests}
@@ -423,8 +405,6 @@ AC_CHECK_LIB(ossaudio,_oss_ioctl)
 
 AC_SUBST(OPENGL_LIBS,"")
 
-AC_SUBST(D3D9NINE_LIBS,"")
-
 dnl **** Check for header files ****
 
 AC_SYS_LARGEFILE()
@@ -445,7 +425,7 @@ AC_CHECK_HEADERS(\
 	IOKit/IOKitLib.h \
 	IOKit/hid/IOHIDLib.h \
 	OpenAL/al.h \
-	CL/opencl.h \
+	OpenCL/opencl.h \
 	QuickTime/ImageCompression.h \
 	Security/Security.h \
 	alias.h \
@@ -720,20 +700,6 @@ AC_CHECK_HEADERS([libprocstat.h],,,
 #include <sys/socket.h>
 #endif])
 
-if test "x$with_xattr" != "xno"
-then
-    AC_CHECK_HEADERS(attr/xattr.h sys/extattr.h, [HAVE_XATTR=1])
-    AC_CHECK_HEADERS(sys/xattr.h, [HAVE_XATTR=1]
-        [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/xattr.h>]], [[getxattr("", "", "", 0, 0, 0);]])],
-            [AC_DEFINE(XATTR_ADDITIONAL_OPTIONS, 1, [Define if xattr functions take additional arguments (Mac OS X)])])])
-fi
-if test "x$with_xattr" = "xyes"
-then
-    WINE_ERROR_WITH(xattr,[test "x$HAVE_XATTR" = "x"],[xattr ${notice_platform}development files \
-not found. Wine will be built without extended attribute support, which probably isn't what you \
-want. You will need to install ${notice_platform}development packages of libattr at the very least.])
-fi
-
 dnl **** Check for working dll ****
 
 AC_SUBST(DLLFLAGS,"-D_REENTRANT")
@@ -741,7 +707,6 @@ AC_SUBST(LDRPATH_INSTALL,"")
 AC_SUBST(LDRPATH_LOCAL,"")
 AC_SUBST(LDEXECFLAGS,"")
 AC_SUBST(WINELOADER_LDFLAGS,"")
-AC_SUBST(WINEPRELOADER_LDFLAGS,"")
 LIBEXT="so"
 DLLEXT=".so"
 IMPLIBEXT="def"
@@ -800,17 +765,9 @@ case $host_os in
     AC_SUBST(APPLICATIONSERVICES_LIBS,"-framework ApplicationServices")
     AC_SUBST(CORESERVICES_LIBS,"-framework CoreServices")
     AC_SUBST(APPKIT_LIBS,"-framework AppKit")
-
-    WINELOADER_LDFLAGS="-Wl,-pie,-pagezero_size,0x1000,-sectcreate,__TEXT,__info_plist,wine_info.plist"
-    WINE_TRY_CFLAGS([-fPIC -Wl,--export-dynamic],
-                    [WINELOADER_LDFLAGS="-Wl,--export-dynamic $WINELOADER_LDFLAGS"])
-
-    WINEPRELOADER_LDFLAGS="-nostartfiles -nodefaultlibs -e _start -ldylib1.o -Wl,-image_base,0x7c400000,-pagezero_size,0x1000,-sectcreate,__TEXT,__info_plist,wine_info.plist"
-    WINE_TRY_CFLAGS([-Wl,-no_new_main -e _main],
-                    [WINEPRELOADER_LDFLAGS="-Wl,-no_new_main $WINEPRELOADER_LDFLAGS"])
+    WINELOADER_LDFLAGS="-image_base 0x7bf00000 -Wl,-pagezero_size,0x1000,-segaddr,WINE_DOS,0x00001000,-segaddr,WINE_SHAREDHEAP,0x7f000000,-sectcreate,__TEXT,__info_plist,wine_info.plist"
     WINE_TRY_CFLAGS([-Wl,-no_pie],
-                    [WINEPRELOADER_LDFLAGS="-Wl,-no_pie $WINEPRELOADER_LDFLAGS"])
-
+                    [WINELOADER_LDFLAGS="-Wl,-no_pie $WINELOADER_LDFLAGS"])
     if test "$ac_cv_header_DiskArbitration_DiskArbitration_h" = "yes"
     then
         dnl DiskArbitration API is not public on Darwin < 8.0, use it only if header found
@@ -923,7 +880,6 @@ case $host_os in
     enable_wineandroid_drv=${enable_wineandroid_drv:-yes}
     WINE_TRY_CFLAGS([-fPIC -Wl,--export-dynamic],
                     [WINELOADER_LDFLAGS="-Wl,--export-dynamic"])
-    WINEPRELOADER_LDFLAGS="-static -nostartfiles -nodefaultlibs -Wl,-Ttext=0x7c400000"
     WINE_TRY_CFLAGS([-fPIC -Wl,--rpath,\$ORIGIN/../lib],
                     [LDRPATH_INSTALL="-Wl,--rpath,\\\$\$ORIGIN/\`\$(MAKEDEP) -R \${bindir} \${libdir}\`"
                      LDRPATH_LOCAL="-Wl,--rpath,\\\$\$ORIGIN/\$(top_builddir)/libs/wine"],
@@ -971,13 +927,12 @@ case $host_os in
 
       WINE_TRY_CFLAGS([-fPIC -Wl,--export-dynamic],
                       [WINELOADER_LDFLAGS="-Wl,--export-dynamic"])
-      WINEPRELOADER_LDFLAGS="-static -nostartfiles -nodefaultlibs -Wl,-Ttext=0x7c400000"
 
       WINE_TRY_CFLAGS([-fPIC -Wl,--rpath,\$ORIGIN/../lib],
-                      [LDRPATH_INSTALL="-Wl,--rpath,\\\$\$ORIGIN/\`\$(MAKEDEP) -R \${bindir} \${libdir}\`:\$(DESTDIR)\${libdir}"
+                      [LDRPATH_INSTALL="-Wl,--rpath,\\\$\$ORIGIN/\`\$(MAKEDEP) -R \${bindir} \${libdir}\`"
                        LDRPATH_LOCAL="-Wl,--rpath,\\\$\$ORIGIN/\$(top_builddir)/libs/wine"],
           [WINE_TRY_CFLAGS([-fPIC -Wl,-R,\$ORIGIN/../lib],
-                           [LDRPATH_INSTALL="-Wl,-R,\\\$\$ORIGIN/\`\$(MAKEDEP) -R \${bindir} \${libdir}\`:\$(DESTDIR)\${libdir}"
+                           [LDRPATH_INSTALL="-Wl,-R,\\\$\$ORIGIN/\`\$(MAKEDEP) -R \${bindir} \${libdir}\`"
                             LDRPATH_LOCAL="-Wl,-R,\\\$\$ORIGIN/\$(top_builddir)/libs/wine"])])
 
       WINE_TRY_CFLAGS([-Wl,--enable-new-dtags],
@@ -1256,198 +1211,6 @@ This probably prevents linking to OpenGL. Try deleting the file and restarting c
     WINE_WARNING_WITH(opengl,[test -n "$opengl_msg"],[$opengl_msg
 OpenGL and Direct3D won't be supported.])
 
-    dnl **** Check for libva ****
-    AC_CHECK_HEADERS([va/va_x11.h va/va_drm.h])
-    if test "$ac_cv_header_va_va_x11_h" = "yes" -a "$ac_cv_header_va_va_drm_h" = "yes"
-    then
-        WINE_CHECK_SONAME(va,vaQuerySurfaceAttributes,,,[$X_LIBS])
-        WINE_CHECK_SONAME(va-x11,vaGetDisplay,,,[$X_LIBS -lva])
-        WINE_CHECK_SONAME(va-drm,vaGetDisplayDRM,,,[$X_LIBS -lva])
-        if test "x$ac_cv_lib_soname_va" != "x" -a "x$ac_cv_lib_soname_va_x11" != "x" -a "x$ac_cv_lib_soname_va_drm" != "x"
-        then
-            AC_DEFINE(HAVE_VAAPI, 1, [Define if you have the libva development files])
-        fi
-    fi
-    WINE_NOTICE_WITH(va,[test "x$ac_cv_lib_soname_va" = "x" -o "x$ac_cv_lib_soname_va_x11" = "x" -o "x$ac_cv_lib_soname_va_drm" = "x"],
-                     [libva ${notice_platform}development files not found, GPU video acceleration won't be supported.])
-
-    dnl Check for d3d9-nine support
-    if test "x$with_d3d9_nine" = "xauto" && (test "x$with_d3d9_nine_module" = "xauto" || test "x$with_d3d9_nine_headers_path" = "xauto")
-    then
-        AC_MSG_CHECKING([whether d3dadapter9 package (Gallium Nine) is present])
-        D3DADAPTER9_MODULEDIR=`$PKG_CONFIG --variable=moduledir d3dadapter9 2>/dev/null`
-        D3DADAPTER9_LEGACY_MODULEDIR=`$PKG_CONFIG --variable=moduledir d3d 2>/dev/null`
-        if test "x$D3DADAPTER9_MODULEDIR" = "x" -a "x$D3DADAPTER9_LEGACY_MODULEDIR" = "x"
-        then
-            AC_MSG_RESULT([no, disabling support])
-            with_d3d9_nine=no
-        else
-            AC_MSG_RESULT([yes])
-        fi
-    fi
-
-    if test "x$with_d3d9_nine" != "xno"
-    then
-        AC_MSG_NOTICE([Checking for d3dadapter9 library dependencies])
-        D3D9NINE_LIBS=""
-        D3D9NINE_MISSING_LIBS=""
-        AC_CHECK_LIB(xcb,xcb_request_check,[AC_SUBST(D3D9NINE_LIBS,["$D3D9NINE_LIBS -lxcb"])])
-        test "x$ac_cv_lib_xcb_xcb_request_check" != xyes && D3D9NINE_MISSING_LIBS="libxcb "
-        AC_CHECK_LIB(xcb-dri3,xcb_dri3_open,[AC_SUBST(D3D9NINE_LIBS,["$D3D9NINE_LIBS -lxcb-dri3"])])
-        test "x$ac_cv_lib_xcb_dri3_xcb_dri3_open" != xyes && D3D9NINE_MISSING_LIBS="${D3D9NINE_MISSING_LIBS}libxcb-dri3 "
-        AC_CHECK_LIB(xcb-present,xcb_present_notify_msc,[AC_SUBST(D3D9NINE_LIBS,["$D3D9NINE_LIBS -lxcb-present"])])
-        test "x$ac_cv_lib_xcb_present_xcb_present_notify_msc" != xyes && D3D9NINE_MISSING_LIBS="${D3D9NINE_MISSING_LIBS}libxcb-present "
-        AC_CHECK_LIB(xcb-xfixes,xcb_xfixes_create_region,[AC_SUBST(D3D9NINE_LIBS,["$D3D9NINE_LIBS -lxcb-xfixes"])])
-        test "x$ac_cv_lib_xcb_xfixes_xcb_xfixes_create_region" != xyes && D3D9NINE_MISSING_LIBS="${D3D9NINE_MISSING_LIBS}libxcb-xfixes "
-        AC_CHECK_LIB(X11-xcb,XGetXCBConnection,[AC_SUBST(D3D9NINE_LIBS,["$D3D9NINE_LIBS -lX11-xcb"])])
-        test "x$ac_cv_lib_X11_xcb_XGetXCBConnection" != xyes && D3D9NINE_MISSING_LIBS="${D3D9NINE_MISSING_LIBS}libX11-xcb "
-        AC_CHECK_LIB(X11,XOpenDisplay,[AC_SUBST(D3D9NINE_LIBS,["$D3D9NINE_LIBS -lX11"])])
-        test "x$ac_cv_lib_X11_XOpenDisplay" != xyes && D3D9NINE_MISSING_LIBS="${D3D9NINE_MISSING_LIBS}libX11 "
-        AC_CHECK_LIB(Xext,XextRemoveDisplay,[AC_SUBST(D3D9NINE_LIBS,["$D3D9NINE_LIBS -lXext"])])
-        test "x$ac_cv_lib_Xext_XextRemoveDisplay" != xyes && D3D9NINE_MISSING_LIBS="${D3D9NINE_MISSING_LIBS}libXext "
-        # libs for the dri2 fallback
-        AC_CHECK_LIB(GL,glGenFramebuffers,[AC_SUBST(D3D9NINE_LIBS,["$D3D9NINE_LIBS -lGL"])])
-        test "x$ac_cv_lib_GL_glGenFramebuffers" != xyes && D3D9NINE_MISSING_LIBS="libGL "
-        AC_CHECK_LIB(EGL,eglCreateContext,[AC_SUBST(D3D9NINE_LIBS,["$D3D9NINE_LIBS -lEGL"])])
-        test "x$ac_cv_lib_EGL_eglCreateContext" != xyes && D3D9NINE_MISSING_LIBS="${D3D9NINE_MISSING_LIBS}libEGL"
-
-        if test "x$D3D9NINE_MISSING_LIBS" != x
-        then
-            if test "x$with_d3d9_nine" = "xyes"
-            then
-                AC_MSG_ERROR([Missing libraries to build d3d9-nine.dll: $D3D9NINE_MISSING_LIBS])
-            else
-                AC_MSG_NOTICE([Missing libraries to build d3d9-nine.dll: $D3D9NINE_MISSING_LIBS . disabling support])
-                with_d3d9_nine=no
-            fi
-        fi
-    fi
-
-    if test "x$with_d3d9_nine" != "xno"
-    then
-        AC_MSG_NOTICE([Checking d3dadapter9 header dependencies])
-        D3D9NINE_MISSING_HEADERS=""
-        AC_CHECK_HEADERS([X11/Xlib-xcb.h xcb/dri3.h xcb/present.h X11/Xutil.h X11/Xlib.h pthread.h])
-        test "x$ac_cv_header_X11_Xlib_xcb_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}X11/Xlib-xcb.h "
-        test "x$ac_cv_header_xcb_dri3_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}xcb/dri3.h "
-        test "x$ac_cv_header_xcb_present_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}xcb/present.h "
-        test "x$ac_cv_header_X11_Xutil_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}X11/Xutil.h "
-        test "x$ac_cv_header_X11_Xlib_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}X11/Xlib.h "
-        test "x$ac_cv_header_pthread_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}pthread.h "
-        # headers for the dri2 fallback
-        AC_CHECK_HEADERS([X11/Xmd.h X11/Xlibint.h X11/extensions/dri2tokens.h X11/extensions/dri2proto.h X11/extensions/extutil.h GL/gl.h GL/glext.h EGL/egl.h EGL/eglext.h libdrm/drm_fourcc.h libdrm/drm.h],
-                         [],[],[[
-#include <X11/Xlibint.h>
-#include <X11/extensions/dri2tokens.h>
-#include <GL/gl.h>
-#include <EGL/egl.h>
-]])
-        test "x$ac_cv_header_X11_Xmd_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}X11/Xmd.h "
-        test "x$ac_cv_header_X11_Xlibint_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}X11/Xlibint.h "
-        test "x$ac_cv_header_X11_extensions_dri2tokens_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}X11/extensions/dri2tokens.h "
-        test "x$ac_cv_header_X11_extensions_dri2proto_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}X11/extensions/dri2proto.h "
-        test "x$ac_cv_header_X11_extensions_extutil_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}X11/extensions/extutil.h "
-        test "x$ac_cv_header_GL_gl_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}GL/gl.h "
-        test "x$ac_cv_header_GL_glext_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}GL/glext.h "
-        test "x$ac_cv_header_EGL_egl_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}EGL/egl.h "
-        test "x$ac_cv_header_EGL_eglext_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}EGL/eglext.h "
-        test "x$ac_cv_header_libdrm_drm_fourcc_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}libdrm/drm_fourcc.h "
-        test "x$ac_cv_header_libdrm_drm_h" != xyes && D3D9NINE_MISSING_HEADERS="${D3D9NINE_MISSING_HEADERS}libdrm/drm.h "
-        if test "x$D3D9NINE_MISSING_HEADERS" != x
-        then
-            if test "x$with_d3d9_nine" = "xyes"
-            then
-                AC_MSG_ERROR([Missing headers to build d3d9-nine.dll: $D3D9NINE_MISSING_HEADERS])
-            else
-                AC_MSG_NOTICE([Missing headers to build d3d9-nine.dll: $D3D9NINE_MISSING_HEADERS . disabling support])
-                with_d3d9_nine=no
-            fi
-        fi
-    fi
-
-    if test "x$with_d3d9_nine" != "xno"
-    then
-        # d3d9-nine.dll will be built and an option to use it
-        # added. The module path can always be overriden by
-        # a wine registry setting. If the module isn't found
-        # at execution time, the dll will refuse to load and
-        # print an error message to the user.
-        AC_DEFINE(HAVE_D3D9NINE, 1, [Whether d3d9-nine.dll is built])
-        # default: use pkgconfig to find the gallium nine module.
-        # Check the module is there.
-        if test "x$with_d3d9_nine_module" = "xauto"
-        then
-            D3DADAPTER9_MODULEDIR=`$PKG_CONFIG --variable=moduledir d3dadapter9 2>/dev/null`
-            if test "x$D3DADAPTER9_MODULEDIR" = x
-            then
-                # legacy path
-                D3DADAPTER9_MODULEDIR=`$PKG_CONFIG --variable=moduledir d3d 2>/dev/null`
-                if test "x$D3DADAPTER9_MODULEDIR" = x
-                then
-                    AC_MSG_ERROR([pkg-config couldn't find Gallium Nine module])
-                fi
-            fi
-            AC_DEFINE_UNQUOTED(D3D9NINE_MODULEPATH, ["`echo ${D3DADAPTER9_MODULEDIR}/d3dadapter9.so.1`"], [Gallium Nine module path])
-            # Check module
-            CPPFLAGSBAK=$CPPFLAGS
-            # link against libdl
-            CPPFLAGS="$CPPFLAGS -Wl,--no-as-needed -ldl"
-
-            AC_RUN_IFELSE([AC_LANG_PROGRAM([[#include <dlfcn.h>
-#include <stdlib.h>]],[[void *handle = dlopen("${D3DADAPTER9_MODULEDIR}/d3dadapter9.so.1", RTLD_GLOBAL | RTLD_NOW);
-exit((handle && dlsym(handle, "D3DAdapter9GetProc")) ? 0 : 1)]])],
-                          [echo "d3dadapter9.so.1 found at '${D3DADAPTER9_MODULEDIR}/d3dadapter9.so.1'"],
-                          [AC_MSG_ERROR([Couldn't load Gallium nine module at '${D3DADAPTER9_MODULEDIR}/d3dadapter9.so.1' (found by pkg-config)])])
-            CPPFLAGS=$CPPFLAGSBAK
-        else
-            # Manual : do not feed any path, the wine registry will have
-            # to be used to pass a path. Useful for wine builds
-            # that are distributed and will run on different
-            # distros.
-            # Else feed a path directly. Useful for distro maintainers who
-            # know where the package would be installed, but don't have
-            # it installed on their build.
-            # Don't check if the module is there.
-            if test "x$with_d3d9_nine_module" != "xmanual"
-            then
-                AC_DEFINE_UNQUOTED(D3D9NINE_MODULEPATH, ["`echo ${with_d3d9_nine_module}`"], [Gallium Nine module path])
-            fi
-        fi
-
-        # by default the headers are found with pkgconfig,
-        # but it is possible to pass a path to a specific directory.
-        # that directory must contain a d3dadapter directory
-        # with d3dadapter9.h, drm.h and present.h
-        if test "x$with_d3d9_nine_headers_path" = "xauto"
-        then
-            AC_PROG_SED
-            D3DADAPTER9_INCLUDEDIR=`$PKG_CONFIG --variable=includedir d3dadapter9 2>/dev/null`
-            D3DADAPTER9_MAJOR=`$PKG_CONFIG --modversion d3dadapter9 2>/dev/null | $SED -n 's/\([[^\.]]*\)\..*$/\1/p'`
-            if test "x$D3DADAPTER9_INCLUDEDIR" = x
-            then
-                # legacy path
-                D3DADAPTER9_INCLUDEDIR=`$PKG_CONFIG --variable=includedir d3d 2>/dev/null`
-                D3DADAPTER9_MAJOR=`$PKG_CONFIG --modversion d3d 2>/dev/null | $SED -n 's/\([[^\.]]*\)\..*$/\1/p'`
-                if test "x$D3DADAPTER9_INCLUDEDIR" = x
-                then
-                    AC_MSG_ERROR([pkg-config couldn't find Gallium Nine headers])
-                fi
-            fi
-            # check major version of package. The major version number guarantees header compatibility.
-            if test "x$D3DADAPTER9_MAJOR" != x1
-            then
-                AC_MSG_ERROR([pkg-config found Gallium Nine Module and Headers, but version is incompatible])
-            fi
-        else
-            D3DADAPTER9_INCLUDEDIR=`echo ${with_d3d9_nine_headers_path}`
-        fi
-        AC_DEFINE_UNQUOTED(D3D9NINE_HEADERS_CFLAGS, ["`echo -I${D3DADAPTER9_INCLUDEDIR}`"], [Gallium Nine headers cflags])
-
-        AC_DEFINE(D3D9NINE_DRI2, 1, [Whether d3d9-nine DRI2 fallback is compiled])
-    else
-        enable_d3d9_nine=${enable_d3d9_nine:-no}
-    fi
-
     CPPFLAGS="$ac_save_CPPFLAGS"
 else
     X_CFLAGS=""
@@ -1479,9 +1242,9 @@ WINE_NOTICE_WITH(opencl,[test "x$ac_cv_lib_OpenCL_clGetPlatformInfo" != xyes],
 dnl **** Check for libpcap ****
 if test "$ac_cv_header_pcap_pcap_h" = "yes"
 then
-    WINE_CHECK_SONAME(pcap,pcap_create,,,)
+    AC_CHECK_LIB(pcap,pcap_create,[AC_SUBST(PCAP_LIBS,["-lpcap"])])
 fi
-WINE_NOTICE_WITH(pcap,[test "x$ac_cv_lib_soname_pcap" = "x"],
+WINE_NOTICE_WITH(pcap,[test "x$ac_cv_lib_pcap_pcap_create" != xyes],
                  [pcap ${notice_platform}development files not found, wpcap won't be supported.],
                  [enable_wpcap])
 
@@ -1678,26 +1441,6 @@ then
 fi
 WINE_NOTICE_WITH(cms,[test "$ac_cv_lib_lcms2_cmsOpenProfileFromFile" != "yes"],
                  [liblcms2 ${notice_platform}development files not found, Color Management won't be supported.])
-
-dnl **** Check for GTK3 ****
-if test "x$with_gtk3" != "xno";
-then
-    WINE_PACKAGE_INCLUDE_FLAGS(GTK3, [gtk+-3.0],,
-        [AC_CHECK_HEADERS([gtk/gtk.h])
-        if test "$ac_cv_header_gtk_gtk_h" = "yes"
-        then
-            WINE_CHECK_SONAME(gobject-2.0,g_object_unref,
-                [WINE_CHECK_SONAME(cairo,cairo_destroy,
-                    [WINE_CHECK_SONAME(gtk-3,gtk_style_context_save,
-                            [AC_DEFINE(HAVE_GTK3, 1, [Define if GTK 3 is installed])])])])
-            test "x$ac_cv_lib_soname_gtk_3" != "x" || GTK3_CFLAGS=""
-        else
-            GTK3_CFLAGS=""
-        fi])
-fi
-WINE_NOTICE_WITH(gtk3,[test "x$ac_cv_lib_soname_gtk_3" = x],
-                 [GTK3 ${notice_platform}development files not found, GTK themes won't be supported.])
-test "x$ac_cv_lib_soname_gtk_3" != "x" || enable_uxtheme_gtk=${enable_uxtheme_gtk:-no}
 
 dnl **** Check for FreeType 2 ****
 if test "x$with_freetype" != "xno"
@@ -1996,9 +1739,6 @@ then
 fi
 WINE_NOTICE_WITH(tiff,[test "x$ac_cv_lib_soname_tiff" = "x"],
                  [libtiff ${notice_platform}development files not found, TIFF won't be supported.])
-
-dnl **** Check for libtxc_dxtn ****
-WINE_CHECK_SONAME(txc_dxtn,tx_compress_dxtn,,,,[[libtxc_dxtn\\(_s2tc\\)\\{0,1\\}]])
 
 dnl **** Check for mpg123 ****
 if test "x$with_mpg123" != "xno"
@@ -2346,14 +2086,6 @@ case $host_os in
   linux*)
     case $host_cpu in
       *i[[3456789]]86*|x86_64*|*aarch64*)
-        test "$wine_binary" = wine || WINE_IGNORE_FILE("loader/wine-preloader")
-        WINELOADER_PROGRAMS="$WINELOADER_PROGRAMS $wine_binary-preloader"
-        ;;
-    esac
-    ;;
-  darwin*|macosx*)
-    case $host_cpu in
-      *i[[3456789]]86*|x86_64*)
         test "$wine_binary" = wine || WINE_IGNORE_FILE("loader/wine-preloader")
         WINELOADER_PROGRAMS="$WINELOADER_PROGRAMS $wine_binary-preloader"
         ;;
@@ -3011,15 +2743,6 @@ then
     AC_DEFINE(HAVE___BUILTIN_CLZ, 1, [Define to 1 if you have the `__builtin_clz' built-in function.])
 fi
 
-dnl Check for __builtin_ctzl
-AC_CACHE_CHECK([for __builtin_ctzl], ac_cv_have___builtin_ctzl,
-               AC_LINK_IFELSE([AC_LANG_PROGRAM(,[[return __builtin_ctzl(1)]])],
-               [ac_cv_have___builtin_ctzl="yes"], [ac_cv_have___builtin_ctzl="no"]))
-if test "$ac_cv_have___builtin_ctzl" = "yes"
-then
-    AC_DEFINE(HAVE___BUILTIN_CTZL, 1, [Define to 1 if you have the `__builtin_ctzl' built-in function.])
-fi
-
 dnl Check for __builtin_popcount
 AC_CACHE_CHECK([for __builtin_popcount], ac_cv_have___builtin_popcount,
                AC_LINK_IFELSE([AC_LANG_PROGRAM(,[[return __builtin_popcount(1)]])],
@@ -3386,7 +3109,6 @@ WINE_CONFIG_MAKEFILE(dlls/d3d8)
 WINE_CONFIG_MAKEFILE(dlls/d3d8/tests)
 WINE_CONFIG_MAKEFILE(dlls/d3d9)
 WINE_CONFIG_MAKEFILE(dlls/d3d9/tests)
-WINE_CONFIG_MAKEFILE(dlls/d3d9-nine)
 WINE_CONFIG_MAKEFILE(dlls/d3dcompiler_33)
 WINE_CONFIG_MAKEFILE(dlls/d3dcompiler_34)
 WINE_CONFIG_MAKEFILE(dlls/d3dcompiler_35)
@@ -3512,17 +3234,13 @@ WINE_CONFIG_MAKEFILE(dlls/dxerr8)
 WINE_CONFIG_MAKEFILE(dlls/dxerr9)
 WINE_CONFIG_MAKEFILE(dlls/dxgi)
 WINE_CONFIG_MAKEFILE(dlls/dxgi/tests)
-WINE_CONFIG_MAKEFILE(dlls/dxgkrnl.sys)
-WINE_CONFIG_MAKEFILE(dlls/dxgmms1.sys)
 WINE_CONFIG_MAKEFILE(dlls/dxguid)
 WINE_CONFIG_MAKEFILE(dlls/dxva2)
-WINE_CONFIG_MAKEFILE(dlls/dxva2/tests)
 WINE_CONFIG_MAKEFILE(dlls/esent)
 WINE_CONFIG_MAKEFILE(dlls/evr)
 WINE_CONFIG_MAKEFILE(dlls/evr/tests)
 WINE_CONFIG_MAKEFILE(dlls/explorerframe)
 WINE_CONFIG_MAKEFILE(dlls/explorerframe/tests)
-WINE_CONFIG_MAKEFILE(dlls/ext-ms-win-appmodel-usercontext-l1-1-0)
 WINE_CONFIG_MAKEFILE(dlls/ext-ms-win-authz-context-l1-1-0)
 WINE_CONFIG_MAKEFILE(dlls/ext-ms-win-domainjoin-netjoin-l1-1-0)
 WINE_CONFIG_MAKEFILE(dlls/ext-ms-win-dwmapi-ext-l1-1-0)
@@ -3560,11 +3278,8 @@ WINE_CONFIG_MAKEFILE(dlls/ext-ms-win-rtcore-ntuser-syscolors-l1-1-0)
 WINE_CONFIG_MAKEFILE(dlls/ext-ms-win-rtcore-ntuser-sysparams-l1-1-0)
 WINE_CONFIG_MAKEFILE(dlls/ext-ms-win-security-credui-l1-1-0)
 WINE_CONFIG_MAKEFILE(dlls/ext-ms-win-security-cryptui-l1-1-0)
-WINE_CONFIG_MAKEFILE(dlls/ext-ms-win-uxtheme-themes-l1-1-0)
-WINE_CONFIG_MAKEFILE(dlls/ext-ms-win-xaml-pal-l1-1-0)
 WINE_CONFIG_MAKEFILE(dlls/faultrep)
 WINE_CONFIG_MAKEFILE(dlls/faultrep/tests)
-WINE_CONFIG_MAKEFILE(dlls/feclient)
 WINE_CONFIG_MAKEFILE(dlls/fltlib)
 WINE_CONFIG_MAKEFILE(dlls/fltmgr.sys)
 WINE_CONFIG_MAKEFILE(dlls/fntcache)
@@ -3598,7 +3313,6 @@ WINE_CONFIG_MAKEFILE(dlls/icmp)
 WINE_CONFIG_MAKEFILE(dlls/ieframe)
 WINE_CONFIG_MAKEFILE(dlls/ieframe/tests)
 WINE_CONFIG_MAKEFILE(dlls/ieproxy)
-WINE_CONFIG_MAKEFILE(dlls/iertutil)
 WINE_CONFIG_MAKEFILE(dlls/ifsmgr.vxd,enable_win16)
 WINE_CONFIG_MAKEFILE(dlls/imaadp32.acm)
 WINE_CONFIG_MAKEFILE(dlls/imagehlp)
@@ -3792,14 +3506,6 @@ WINE_CONFIG_MAKEFILE(dlls/ntdsapi/tests)
 WINE_CONFIG_MAKEFILE(dlls/ntoskrnl.exe)
 WINE_CONFIG_MAKEFILE(dlls/ntprint)
 WINE_CONFIG_MAKEFILE(dlls/ntprint/tests)
-WINE_CONFIG_MAKEFILE(dlls/nvapi,enable_win32)
-WINE_CONFIG_MAKEFILE(dlls/nvapi/tests)
-WINE_CONFIG_MAKEFILE(dlls/nvapi64,enable_win64)
-WINE_CONFIG_MAKEFILE(dlls/nvcuda)
-WINE_CONFIG_MAKEFILE(dlls/nvcuda/tests)
-WINE_CONFIG_MAKEFILE(dlls/nvcuvid)
-WINE_CONFIG_MAKEFILE(dlls/nvencodeapi,enable_win32)
-WINE_CONFIG_MAKEFILE(dlls/nvencodeapi64,enable_win64)
 WINE_CONFIG_MAKEFILE(dlls/objsel)
 WINE_CONFIG_MAKEFILE(dlls/odbc32)
 WINE_CONFIG_MAKEFILE(dlls/odbccp32)
@@ -3965,7 +3671,6 @@ WINE_CONFIG_MAKEFILE(dlls/usp10/tests)
 WINE_CONFIG_MAKEFILE(dlls/uuid)
 WINE_CONFIG_MAKEFILE(dlls/uxtheme)
 WINE_CONFIG_MAKEFILE(dlls/uxtheme/tests)
-WINE_CONFIG_MAKEFILE(dlls/uxtheme-gtk)
 WINE_CONFIG_MAKEFILE(dlls/vbscript)
 WINE_CONFIG_MAKEFILE(dlls/vbscript/tests)
 WINE_CONFIG_MAKEFILE(dlls/vcomp)
@@ -4005,7 +3710,6 @@ WINE_CONFIG_MAKEFILE(dlls/wiaservc)
 WINE_CONFIG_MAKEFILE(dlls/wiaservc/tests)
 WINE_CONFIG_MAKEFILE(dlls/wimgapi)
 WINE_CONFIG_MAKEFILE(dlls/win32s16.dll16,enable_win16)
-WINE_CONFIG_MAKEFILE(dlls/win32k.sys)
 WINE_CONFIG_MAKEFILE(dlls/win87em.dll16,enable_win16)
 WINE_CONFIG_MAKEFILE(dlls/winaspi.dll16,enable_win16)
 WINE_CONFIG_MAKEFILE(dlls/windebug.dll16,enable_win16)
@@ -4153,7 +3857,6 @@ WINE_CONFIG_MAKEFILE(programs/ipconfig)
 WINE_CONFIG_MAKEFILE(programs/lodctr)
 WINE_CONFIG_MAKEFILE(programs/mofcomp)
 WINE_CONFIG_MAKEFILE(programs/mshta)
-WINE_CONFIG_MAKEFILE(programs/msidb)
 WINE_CONFIG_MAKEFILE(programs/msiexec)
 WINE_CONFIG_MAKEFILE(programs/msinfo32)
 WINE_CONFIG_MAKEFILE(programs/net)
@@ -4175,7 +3878,6 @@ WINE_CONFIG_MAKEFILE(programs/regedit/tests)
 WINE_CONFIG_MAKEFILE(programs/regsvcs)
 WINE_CONFIG_MAKEFILE(programs/regsvr32)
 WINE_CONFIG_MAKEFILE(programs/rpcss)
-WINE_CONFIG_MAKEFILE(programs/runas)
 WINE_CONFIG_MAKEFILE(programs/rundll.exe16,enable_win16)
 WINE_CONFIG_MAKEFILE(programs/rundll32)
 WINE_CONFIG_MAKEFILE(programs/sc)
@@ -4223,7 +3925,6 @@ WINE_CONFIG_MAKEFILE(programs/wordpad)
 WINE_CONFIG_MAKEFILE(programs/write)
 WINE_CONFIG_MAKEFILE(programs/wscript)
 WINE_CONFIG_MAKEFILE(programs/wscript/tests)
-WINE_CONFIG_MAKEFILE(programs/wuauserv)
 WINE_CONFIG_MAKEFILE(programs/wusa)
 WINE_CONFIG_MAKEFILE(programs/xcopy)
 WINE_CONFIG_MAKEFILE(programs/xcopy/tests)

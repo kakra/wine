@@ -79,7 +79,7 @@
 @ stub FltGetLowerInstance
 @ stub FltGetRequestorProcess
 @ stub FltGetRequestorProcessId
-@ stdcall FltGetRoutineAddress(str)
+@ stub FltGetRoutineAddress
 @ stub FltGetStreamContext
 @ stub FltGetStreamHandleContext
 @ stub FltGetSwappedBufferMdlAddress
@@ -128,7 +128,7 @@
 @ stub FltReadFile
 @ stub FltReferenceContext
 @ stub FltReferenceFileNameInformation
-@ stdcall FltRegisterFilter(ptr ptr ptr)
+@ stub FltRegisterFilter
 @ stub FltReissueSynchronousIo
 @ stub FltReleaseContext
 @ stub FltReleaseContexts
@@ -150,7 +150,7 @@
 @ stub FltSetStreamHandleContext
 @ stub FltSetVolumeContext
 @ stub FltSetVolumeInformation
-@ stdcall FltStartFiltering(ptr)
+@ stub FltStartFiltering
 @ stub FltSupportsFileContexts
 @ stub FltSupportsStreamContexts
 @ stub FltSupportsStreamHandleContexts
@@ -158,6 +158,6 @@
 @ stub FltUninitializeFileLock
 @ stub FltUninitializeOplock
 @ stub FltUnloadFilter
-@ stdcall FltUnregisterFilter(ptr)
+@ stub FltUnregisterFilter
 @ stub FltUntagFile
 @ stub FltWriteFile

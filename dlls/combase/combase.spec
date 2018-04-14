@@ -66,7 +66,7 @@
 @ stdcall CLSIDFromProgID(wstr ptr) ole32.CLSIDFromProgID
 @ stdcall CLSIDFromString(wstr ptr) ole32.CLSIDFromString
 @ stub CleanupOleStateInAllTls
-@ stdcall CleanupTlsOleState(ptr)
+@ stub CleanupTlsOleState
 @ stub ClearCleanupFlag
 @ stdcall CoAddRefServerProcess() ole32.CoAddRefServerProcess
 @ stub CoAllowUnmarshalerCLSID
@@ -242,7 +242,7 @@
 @ stdcall PropVariantClear(ptr) ole32.PropVariantClear
 @ stdcall PropVariantCopy(ptr ptr) ole32.PropVariantCopy
 @ stub ReleaseFuncDescs
-@ stdcall RoActivateInstance(ptr ptr)
+@ stub RoActivateInstance
 @ stub RoCaptureErrorContext
 @ stub RoClearError
 @ stub RoFailFastWithErrorContext
@@ -250,11 +250,11 @@
 @ stub RoGetActivatableClassRegistration
 @ stdcall RoGetActivationFactory(ptr ptr ptr)
 @ stub RoGetAgileReference
-@ stdcall RoGetApartmentIdentifier(ptr)
+@ stub RoGetApartmentIdentifier
 @ stub RoGetErrorReportingFlags
 @ stub RoGetMatchingRestrictedErrorInfo
 @ stdcall RoGetParameterizedTypeInstanceIID(long ptr ptr ptr ptr)
-@ stdcall RoGetServerActivatableClasses(ptr ptr ptr)
+@ stub RoGetServerActivatableClasses
 @ stdcall RoInitialize(long)
 @ stub RoInspectCapturedStackBackTrace
 @ stub RoInspectThreadErrorInfo
@@ -262,8 +262,8 @@
 @ stub RoOriginateErrorW
 @ stub RoOriginateLanguageException
 @ stub RoParameterizedTypeExtraGetTypeSignature
-@ stdcall RoRegisterActivationFactories(ptr ptr long ptr)
-@ stdcall RoRegisterForApartmentShutdown(ptr ptr ptr)
+@ stub RoRegisterActivationFactories
+@ stub RoRegisterForApartmentShutdown
 @ stub RoReportCapabilityCheckFailure
 @ stub RoReportFailedDelegate
 @ stub RoReportUnhandledError

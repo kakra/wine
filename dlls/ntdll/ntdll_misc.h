@@ -27,7 +27,6 @@
 #include "windef.h"
 #include "winnt.h"
 #include "winternl.h"
-#include "wine/debug.h"
 #include "wine/server.h"
 
 #define MAX_NT_PATH_LENGTH 277
@@ -68,7 +67,6 @@ extern NTSTATUS signal_alloc_thread( TEB **teb ) DECLSPEC_HIDDEN;
 extern void signal_free_thread( TEB *teb ) DECLSPEC_HIDDEN;
 extern void signal_init_thread( TEB *teb ) DECLSPEC_HIDDEN;
 extern void signal_init_process(void) DECLSPEC_HIDDEN;
-extern void signal_init_early(void) DECLSPEC_HIDDEN;
 extern void signal_start_thread( LPTHREAD_START_ROUTINE entry, void *arg, BOOL suspend ) DECLSPEC_HIDDEN;
 extern void signal_start_process( LPTHREAD_START_ROUTINE entry, BOOL suspend ) DECLSPEC_HIDDEN;
 extern void DECLSPEC_NORETURN signal_exit_thread( int status ) DECLSPEC_HIDDEN;
@@ -81,9 +79,6 @@ extern void virtual_init(void) DECLSPEC_HIDDEN;
 extern void virtual_init_threading(void) DECLSPEC_HIDDEN;
 extern void fill_cpu_info(void) DECLSPEC_HIDDEN;
 extern void heap_set_debug_flags( HANDLE handle ) DECLSPEC_HIDDEN;
-
-/* token */
-extern HANDLE CDECL __wine_create_default_token(BOOL admin);
 
 /* server support */
 extern timeout_t server_start_time DECLSPEC_HIDDEN;
@@ -108,7 +103,6 @@ extern int server_pipe( int fd[2] ) DECLSPEC_HIDDEN;
 extern NTSTATUS alloc_object_attributes( const OBJECT_ATTRIBUTES *attr, struct object_attributes **ret,
                                          data_size_t *ret_len ) DECLSPEC_HIDDEN;
 extern NTSTATUS validate_open_object_attributes( const OBJECT_ATTRIBUTES *attr ) DECLSPEC_HIDDEN;
-extern void *server_get_shared_memory( HANDLE thread ) DECLSPEC_HIDDEN;
 
 /* module handling */
 extern LIST_ENTRY tls_links DECLSPEC_HIDDEN;
@@ -162,7 +156,7 @@ extern NTSTATUS fill_file_info( const struct stat *st, ULONG attr, void *ptr,
                                 FILE_INFORMATION_CLASS class ) DECLSPEC_HIDDEN;
 extern NTSTATUS server_get_unix_name( HANDLE handle, ANSI_STRING *unix_name ) DECLSPEC_HIDDEN;
 extern void init_directories(void) DECLSPEC_HIDDEN;
-extern BOOL DIR_is_hidden_file( const char *name ) DECLSPEC_HIDDEN;
+extern BOOL DIR_is_hidden_file( const UNICODE_STRING *name ) DECLSPEC_HIDDEN;
 extern NTSTATUS DIR_unmount_device( HANDLE handle ) DECLSPEC_HIDDEN;
 extern NTSTATUS DIR_get_unix_cwd( char **cwd ) DECLSPEC_HIDDEN;
 extern unsigned int DIR_get_drives_info( struct drive_info info[MAX_DOS_DRIVES] ) DECLSPEC_HIDDEN;
@@ -171,7 +165,6 @@ extern NTSTATUS nt_to_unix_file_name_attr( const OBJECT_ATTRIBUTES *attr, ANSI_S
                                            UINT disposition ) DECLSPEC_HIDDEN;
 
 /* virtual memory */
-extern NTSTATUS read_nt_symlink( HANDLE root, UNICODE_STRING *name, WCHAR *target, size_t length ) DECLSPEC_HIDDEN;
 extern NTSTATUS virtual_map_section( HANDLE handle, PVOID *addr_ptr, ULONG zero_bits, SIZE_T commit_size,
                                      const LARGE_INTEGER *offset_ptr, SIZE_T *size_ptr, ULONG protect,
                                      pe_image_info_t *image_info ) DECLSPEC_HIDDEN;
@@ -179,7 +172,6 @@ extern void virtual_get_system_info( SYSTEM_BASIC_INFORMATION *info ) DECLSPEC_H
 extern NTSTATUS virtual_create_builtin_view( void *base ) DECLSPEC_HIDDEN;
 extern NTSTATUS virtual_alloc_thread_stack( TEB *teb, SIZE_T reserve_size,
                                             SIZE_T commit_size, SIZE_T *pthread_size ) DECLSPEC_HIDDEN;
-extern NTSTATUS virtual_map_shared_memory( int fd, PVOID *addr_ptr, ULONG zero_bits, SIZE_T *size_ptr, ULONG protect ) DECLSPEC_HIDDEN;
 extern void virtual_clear_thread_stack( void *stack_end ) DECLSPEC_HIDDEN;
 extern BOOL virtual_handle_stack_fault( void *addr ) DECLSPEC_HIDDEN;
 extern BOOL virtual_is_valid_code_address( const void *addr, SIZE_T size ) DECLSPEC_HIDDEN;
@@ -195,9 +187,6 @@ extern void VIRTUAL_SetForceExec( BOOL enable ) DECLSPEC_HIDDEN;
 extern void virtual_release_address_space(void) DECLSPEC_HIDDEN;
 extern void virtual_set_large_address_space(void) DECLSPEC_HIDDEN;
 extern struct _KUSER_SHARED_DATA *user_shared_data DECLSPEC_HIDDEN;
-extern struct _KUSER_SHARED_DATA *user_shared_data_external DECLSPEC_HIDDEN;
-extern void create_user_shared_data_thread(void) DECLSPEC_HIDDEN;
-extern BYTE* CDECL __wine_user_shared_data(void);
 
 /* completion */
 extern NTSTATUS NTDLL_AddCompletion( HANDLE hFile, ULONG_PTR CompletionValue,
@@ -210,43 +199,6 @@ extern int ntdll_wcstoumbs(DWORD flags, const WCHAR* src, int srclen, char* dst,
 
 extern int CDECL NTDLL__vsnprintf( char *str, SIZE_T len, const char *format, __ms_va_list args ) DECLSPEC_HIDDEN;
 extern int CDECL NTDLL__vsnwprintf( WCHAR *str, SIZE_T len, const WCHAR *format, __ms_va_list args ) DECLSPEC_HIDDEN;
-
-#ifdef __WINE_WINE_PORT_H
-
-/* inline version of RtlEnterCriticalSection */
-static inline void enter_critical_section( RTL_CRITICAL_SECTION *crit )
-{
-    if (interlocked_inc( &crit->LockCount ))
-    {
-        if (crit->OwningThread == ULongToHandle(GetCurrentThreadId()))
-        {
-            crit->RecursionCount++;
-            return;
-        }
-        RtlpWaitForCriticalSection( crit );
-    }
-    crit->OwningThread   = ULongToHandle(GetCurrentThreadId());
-    crit->RecursionCount = 1;
-}
-
-/* inline version of RtlLeaveCriticalSection */
-static inline void leave_critical_section( RTL_CRITICAL_SECTION *crit )
-{
-    WINE_DECLARE_DEBUG_CHANNEL(ntdll);
-    if (--crit->RecursionCount)
-    {
-        if (crit->RecursionCount > 0) interlocked_dec( &crit->LockCount );
-        else ERR_(ntdll)( "section %p is not acquired\n", crit );
-    }
-    else
-    {
-        crit->OwningThread = 0;
-        if (interlocked_dec( &crit->LockCount ) >= 0)
-            RtlpUnWaitCriticalSection( crit );
-    }
-}
-
-#endif  /* __WINE_WINE_PORT_H */
 
 /* load order */
 
@@ -262,7 +214,6 @@ enum loadorder
 };
 
 extern enum loadorder get_load_order( const WCHAR *app_name, const WCHAR *path ) DECLSPEC_HIDDEN;
-extern WCHAR* get_redirect( const WCHAR *app_name, const WCHAR *path, BYTE *buffer, ULONG size ) DECLSPEC_HIDDEN;
 
 struct debug_info
 {
@@ -282,7 +233,6 @@ struct ntdll_thread_data
     int                wait_fd[2];    /* fd for sleeping server requests */
     BOOL               wow64_redir;   /* Wow64 filesystem redirection flag */
     pthread_t          pthread_id;    /* pthread thread id */
-    void              *pthread_stack; /* pthread stack */
 };
 
 C_ASSERT( sizeof(struct ntdll_thread_data) <= sizeof(((TEB *)0)->GdiTebBatch) );
@@ -301,13 +251,4 @@ extern HANDLE keyed_event DECLSPEC_HIDDEN;
 
 NTSTATUS WINAPI RtlHashUnicodeString(PCUNICODE_STRING,BOOLEAN,ULONG,ULONG*);
 
-/* version */
-extern const char * CDECL NTDLL_wine_get_version(void);
-extern const char * CDECL NTDLL_wine_get_build_id(void);
-extern void CDECL NTDLL_wine_get_host_version( const char **sysname, const char **release );
-
-/* process / thread time */
-extern BOOL read_process_time(int unix_pid, int unix_tid, unsigned long clk_tck,
-                              LARGE_INTEGER *kernel, LARGE_INTEGER *user) DECLSPEC_HIDDEN;
-extern BOOL read_process_memory_stats(int unix_pid, VM_COUNTERS *pvmi) DECLSPEC_HIDDEN;
 #endif

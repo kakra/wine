@@ -812,10 +812,11 @@ static const IRemUnknownVtbl RemUnknown_Vtbl =
 };
 
 /* starts the IRemUnknown listener for the current apartment */
-HRESULT start_apartment_remote_unknown(APARTMENT *apt)
+HRESULT start_apartment_remote_unknown(void)
 {
     IRemUnknown *pRemUnknown;
     HRESULT hr = S_OK;
+    APARTMENT *apt = COM_CurrentApt();
 
     EnterCriticalSection(&apt->cs);
     if (!apt->remunk_exported)

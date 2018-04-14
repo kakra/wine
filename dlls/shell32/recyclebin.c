@@ -182,7 +182,7 @@ static void DoErase(RecycleBinMenu *This)
     ISFHelper *helper;
     IShellFolder2_QueryInterface(This->folder,&IID_ISFHelper,(void**)&helper);
     if(helper)
-        ISFHelper_DeleteItems(helper, This->cidl, (LPCITEMIDLIST *)This->apidl, TRUE);
+        ISFHelper_DeleteItems(helper,This->cidl,(LPCITEMIDLIST*)This->apidl);
 }
 
 static void DoRestore(RecycleBinMenu *This)
@@ -815,10 +815,10 @@ static HRESULT erase_items(HWND parent,const LPCITEMIDLIST * apidl, UINT cidl, B
 }
 
 static HRESULT WINAPI RecycleBin_DeleteItems(ISFHelper * iface, UINT cidl,
-                                             LPCITEMIDLIST * apidl, BOOL confirm)
+                                             LPCITEMIDLIST * apidl)
 {
     TRACE("(%p,%u,%p)\n",iface,cidl,apidl);
-    return erase_items(GetActiveWindow(), apidl, cidl, confirm);
+    return erase_items(GetActiveWindow(),apidl,cidl,TRUE);
 }
 
 static HRESULT WINAPI RecycleBin_CopyItems(ISFHelper * iface,

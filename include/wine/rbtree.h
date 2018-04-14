@@ -23,14 +23,8 @@
 #ifndef __WINE_WINE_RBTREE_H
 #define __WINE_WINE_RBTREE_H
 
-#ifdef __GNUC__
-# define WINE_RB_ENTRY_VALUE(element, type, field) ({       \
-     const typeof(((type *)0)->field) *__ptr = (element);   \
-     (type *)((char *)__ptr - offsetof(type, field)); })
-#else
-# define WINE_RB_ENTRY_VALUE(element, type, field) \
-     ((type *)((char *)(element) - offsetof(type, field)))
-#endif
+#define WINE_RB_ENTRY_VALUE(element, type, field) \
+    ((type *)((char *)(element) - offsetof(type, field)))
 
 struct wine_rb_entry
 {

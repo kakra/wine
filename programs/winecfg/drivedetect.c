@@ -131,6 +131,16 @@ static BOOL should_ignore_mnt_dir(char *dir)
     return FALSE;
 }
 
+static BOOL is_drive_defined(char *path)
+{
+    int i;
+    
+    for (i = 0; i < 26; i++)
+        if (drives[i].in_use && !strcmp(drives[i].unixpath, path)) return TRUE;
+
+    return FALSE;
+}
+
 /* returns Z + 1 if there are no more available letters */
 static char allocate_letter(int type)
 {
@@ -147,19 +157,6 @@ static char allocate_letter(int type)
     return letter;
 }
 #endif
-
-static BOOL is_drive_defined(const char *path)
-{
-    int i;
-
-    for (i = 0; i < 26; i++)
-    {
-        if (!drives[i].in_use || !drives[i].unixpath) continue;
-        if (!strcmp(drives[i].unixpath, path)) return TRUE;
-    }
-
-    return FALSE;
-}
 
 #define FSTAB_OPEN 1
 #define NO_MORE_LETTERS 2
@@ -225,7 +222,13 @@ static void report_error(int code)
 
 static void ensure_root_is_mapped(void)
 {
-    if (!is_drive_defined("/"))
+    int i;
+    BOOL mapped = FALSE;
+
+    for (i = 0; i < 26; i++)
+        if (drives[i].in_use && !strcmp(drives[i].unixpath, "/")) mapped = TRUE;
+
+    if (!mapped)
     {
         /* work backwards from Z, trying to map it */
         char letter;
@@ -246,11 +249,16 @@ static void ensure_root_is_mapped(void)
 
 static void ensure_home_is_mapped(void)
 {
+    int i;
+    BOOL mapped = FALSE;
     char *home = getenv("HOME");
 
     if (!home) return;
 
-    if (!is_drive_defined(home))
+    for (i = 0; i < 26; i++)
+        if (drives[i].in_use && !strcmp(drives[i].unixpath, home)) mapped = TRUE;
+
+    if (!mapped)
     {
         char letter;
 

@@ -174,29 +174,16 @@ static HRESULT STDMETHODCALLTYPE dxgi_factory_EnumAdapters(IWineDXGIFactory *ifa
 static HRESULT STDMETHODCALLTYPE dxgi_factory_MakeWindowAssociation(IWineDXGIFactory *iface,
         HWND window, UINT flags)
 {
-    struct dxgi_factory *factory = impl_from_IWineDXGIFactory(iface);
-
     FIXME("iface %p, window %p, flags %#x stub!\n", iface, window, flags);
-
-    if (!window && flags)
-        return DXGI_ERROR_INVALID_CALL;
-
-    factory->assoc_window = window;
 
     return S_OK;
 }
 
 static HRESULT STDMETHODCALLTYPE dxgi_factory_GetWindowAssociation(IWineDXGIFactory *iface, HWND *window)
 {
-    struct dxgi_factory *factory = impl_from_IWineDXGIFactory(iface);
-
     FIXME("iface %p, window %p stub!\n", iface, window);
 
-    if (!window)
-        return DXGI_ERROR_INVALID_CALL;
-
-    *window = factory->assoc_window;
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 static HRESULT STDMETHODCALLTYPE dxgi_factory_CreateSwapChain(IWineDXGIFactory *iface,

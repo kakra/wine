@@ -14,7 +14,6 @@ SOURCES = \
 	amstream.idl \
 	amvideo.idl \
 	appcompatapi.h \
-	apiset.h \
 	appmgmt.h \
 	appmodel.h \
 	asptlb.idl \
@@ -77,9 +76,7 @@ SOURCES = \
 	cryptuiapi.h \
 	ctfutb.idl \
 	ctxtcall.idl \
-	cuda.h \
 	custcntl.h \
-	cuviddec.h \
 	cvconst.h \
 	d2d1.idl \
 	d2d1_1.idl \
@@ -156,7 +153,6 @@ SOURCES = \
 	ddk/compstui.h \
 	ddk/csq.h \
 	ddk/d3dkmthk.h \
-	ddk/fltkernel.h \
 	ddk/hidclass.h \
 	ddk/hidpi.h \
 	ddk/hidport.h \
@@ -249,7 +245,6 @@ SOURCES = \
 	dxgicommon.idl \
 	dxgiformat.idl \
 	dxgitype.idl \
-	dxva.h \
 	dxva2api.idl \
 	dyngraph.idl \
 	endpointvolume.idl \
@@ -473,15 +468,11 @@ SOURCES = \
 	ntddstor.h \
 	ntdef.h \
 	ntdsapi.h \
-	ntifs.h \
 	ntlsa.h \
 	ntquery.h \
 	ntsecapi.h \
 	ntsecpkg.h \
 	ntstatus.h \
-	nvapi.h \
-	nvcuvid.h \
-	nvencodeapi.h \
 	oaidl.idl \
 	objbase.h \
 	objectarray.idl \
@@ -596,7 +587,6 @@ SOURCES = \
 	srrestoreptapi.h \
 	sspi.h \
 	stdole2.idl \
-	stdole32.idl \
 	stgprop.h \
 	sti.h \
 	storage.h \
@@ -640,7 +630,6 @@ SOURCES = \
 	verrsrc.h \
 	vfw.h \
 	vfwmsgs.h \
-	virtdisk.h \
 	vmr9.idl \
 	vmrender.idl \
 	vss.idl \

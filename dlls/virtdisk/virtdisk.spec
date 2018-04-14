@@ -8,7 +8,7 @@
 @ stub EnumerateVirtualDiskMetadata
 @ stub ExpandVirtualDisk
 @ stub GetAllAttachedVirtualDiskPhysicalPaths
-@ stdcall GetStorageDependencyInformation(long long long ptr ptr)
+@ stub GetStorageDependencyInformation
 @ stub GetVirtualDiskInformation
 @ stub GetVirtualDiskMetadata
 @ stub GetVirtualDiskOperationProgress

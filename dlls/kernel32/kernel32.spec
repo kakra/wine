@@ -315,7 +315,7 @@
 @ stdcall CreateProcessA(str str ptr ptr long long ptr str ptr ptr)
 # @ stub CreateProcessAsUserW
 # @ stub CreateProcessInternalA
-@ stdcall CreateProcessInternalW(long wstr wstr ptr ptr long long ptr wstr ptr ptr ptr)
+# @ stub CreateProcessInternalW
 # @ stub CreateProcessInternalWSecure
 @ stdcall CreateProcessW(wstr wstr ptr ptr long long ptr wstr ptr ptr)
 @ stdcall CreateRemoteThread(long ptr long ptr long long ptr)
@@ -716,8 +716,8 @@
 # @ stub GetLongPathNameTransactedW
 @ stdcall GetLongPathNameW (wstr long long)
 @ stdcall GetMailslotInfo(long ptr ptr ptr ptr)
-@ stdcall GetMaximumProcessorCount(long)
-@ stdcall GetMaximumProcessorGroupCount()
+# @ stub GetMaximumProcessorCount
+# @ stub GetMaximumProcessorGroupCount
 @ stdcall GetModuleFileNameA(long ptr long)
 @ stdcall GetModuleFileNameW(long ptr long)
 @ stdcall GetModuleHandleA(str)
@@ -1425,7 +1425,7 @@
 @ stdcall SetNamedPipeHandleState(long ptr ptr ptr)
 @ stdcall SetPriorityClass(long long)
 @ stdcall SetProcessAffinityMask(long long)
-@ stdcall SetProcessAffinityUpdateMode(long long)
+# @ stub SetProcessAffinityUpdateMode
 @ stdcall SetProcessDEPPolicy(long)
 # @ stub SetProcessPreferredUILanguages
 @ stdcall SetProcessPriorityBoost(long long)

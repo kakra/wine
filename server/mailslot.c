@@ -89,7 +89,6 @@ static const struct object_ops mailslot_ops =
     mailslot_link_name,        /* link_name */
     default_unlink_name,       /* unlink_name */
     mailslot_open_file,        /* open_file */
-    no_alloc_handle,           /* alloc_handle */
     fd_close_handle,           /* close_handle */
     mailslot_destroy           /* destroy */
 };
@@ -146,7 +145,6 @@ static const struct object_ops mail_writer_ops =
     no_link_name,               /* link_name */
     NULL,                       /* unlink_name */
     no_open_file,               /* open_file */
-    no_alloc_handle,            /* alloc_handle */
     fd_close_handle,            /* close_handle */
     mail_writer_destroy         /* destroy */
 };
@@ -204,7 +202,6 @@ static const struct object_ops mailslot_device_ops =
     directory_link_name,            /* link_name */
     default_unlink_name,            /* unlink_name */
     mailslot_device_open_file,      /* open_file */
-    no_alloc_handle,                /* alloc_handle */
     fd_close_handle,                /* close_handle */
     mailslot_device_destroy         /* destroy */
 };
@@ -353,7 +350,8 @@ static void mailslot_device_dump( struct object *obj, int verbose )
 
 static struct object_type *mailslot_device_get_type( struct object *obj )
 {
-    const struct unicode_str str = { type_Device, sizeof(type_Device) };
+    static const WCHAR name[] = {'D','e','v','i','c','e'};
+    static const struct unicode_str str = { name, sizeof(name) };
     return get_object_type( &str );
 }
 

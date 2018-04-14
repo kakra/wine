@@ -1225,7 +1225,7 @@ static WCHAR *build_paths_list(LPCWSTR wszBasePath, int cidl, const LPCITEMIDLIS
  * deletes items in folder
  */
 static HRESULT WINAPI
-ISFHelper_fnDeleteItems (ISFHelper *iface, UINT cidl, LPCITEMIDLIST *apidl, BOOL confirm)
+ISFHelper_fnDeleteItems (ISFHelper * iface, UINT cidl, LPCITEMIDLIST * apidl)
 {
     IGenericSFImpl *This = impl_from_ISFHelper(iface);
     UINT i;
@@ -1250,7 +1250,6 @@ ISFHelper_fnDeleteItems (ISFHelper *iface, UINT cidl, LPCITEMIDLIST *apidl, BOOL
     op.wFunc = FO_DELETE;
     op.pFrom = wszPathsList;
     op.fFlags = FOF_ALLOWUNDO;
-    if (!confirm) op.fFlags |= FOF_NOCONFIRMATION;
     if (SHFileOperationW(&op))
     {
         WARN("SHFileOperation failed\n");

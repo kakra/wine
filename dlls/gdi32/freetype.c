@@ -110,9 +110,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(font);
 
-static RTL_RUN_ONCE init_once = RTL_RUN_ONCE_INIT;
-static DWORD WINAPI freetype_lazy_init(RTL_RUN_ONCE *once, void *param, void **context);
-
 #ifdef HAVE_FREETYPE
 
 #ifndef HAVE_FT_TRUETYPEENGINETYPE
@@ -996,23 +993,18 @@ static BOOL is_hinting_enabled(void)
 
 static BOOL is_subpixel_rendering_enabled( void )
 {
+#ifdef FT_LCD_FILTER_H
     static int enabled = -1;
     if (enabled == -1)
     {
-        /* >= 2.8.1 provides LCD rendering without filters */
-        if (FT_Version.major > 2 ||
-            FT_Version.major == 2 && FT_Version.minor > 8 ||
-            FT_Version.major == 2 && FT_Version.minor == 8 && FT_Version.patch >= 1)
-            enabled = TRUE;
-#ifdef FT_LCD_FILTER_H
-        else if (pFT_Library_SetLcdFilter &&
-                 pFT_Library_SetLcdFilter( NULL, 0 ) != FT_Err_Unimplemented_Feature)
-            enabled = TRUE;
-#endif
-        else enabled = FALSE;
+        enabled = (pFT_Library_SetLcdFilter &&
+                   pFT_Library_SetLcdFilter( NULL, 0 ) != FT_Err_Unimplemented_Feature);
         TRACE("subpixel rendering is %senabled\n", enabled ? "" : "NOT ");
     }
     return enabled;
+#else
+    return FALSE;
+#endif
 }
 
 
@@ -2018,6 +2010,7 @@ static inline void get_bitmap_size( FT_Face ft_face, Bitmap_Size *face_size )
 static inline void get_fontsig( FT_Face ft_face, FONTSIGNATURE *fs )
 {
     TT_OS2 *os2;
+    FT_UInt dummy;
     CHARSETINFO csi;
     FT_WinFNT_HeaderRec winfnt_header;
     int i;
@@ -2034,10 +2027,10 @@ static inline void get_fontsig( FT_Face ft_face, FONTSIGNATURE *fs )
 
         if (os2->version == 0)
         {
-            if (os2->usFirstCharIndex >= 0xf000 && os2->usFirstCharIndex < 0xf100)
-                fs->fsCsb[0] = FS_SYMBOL;
-            else
+            if (pFT_Get_First_Char( ft_face, &dummy ) < 0x100)
                 fs->fsCsb[0] = FS_LATIN1;
+            else
+                fs->fsCsb[0] = FS_SYMBOL;
         }
         else
         {
@@ -3253,7 +3246,6 @@ INT WineEngAddFontResourceEx(LPCWSTR file, DWORD flags, PVOID pdv)
 {
     INT ret = 0;
 
-    RtlRunOnceExecuteOnce( &init_once, freetype_lazy_init, NULL, NULL );
     GDI_CheckNotLock();
 
     if (ft_handle)  /* do it only if we have freetype up and running */
@@ -3296,7 +3288,6 @@ INT WineEngAddFontResourceEx(LPCWSTR file, DWORD flags, PVOID pdv)
  */
 HANDLE WineEngAddFontMemResourceEx(PVOID pbFont, DWORD cbFont, PVOID pdv, DWORD *pcFonts)
 {
-    RtlRunOnceExecuteOnce( &init_once, freetype_lazy_init, NULL, NULL );
     GDI_CheckNotLock();
 
     if (ft_handle)  /* do it only if we have freetype up and running */
@@ -3335,7 +3326,6 @@ BOOL WineEngRemoveFontResourceEx(LPCWSTR file, DWORD flags, PVOID pdv)
 {
     INT ret = 0;
 
-    RtlRunOnceExecuteOnce( &init_once, freetype_lazy_init, NULL, NULL );
     GDI_CheckNotLock();
 
     if (ft_handle)  /* do it only if we have freetype up and running */
@@ -3657,13 +3647,10 @@ static BOOL create_fot( const WCHAR *resource, const WCHAR *font_file, const str
 BOOL WineEngCreateScalableFontResource( DWORD hidden, LPCWSTR resource,
                                         LPCWSTR font_file, LPCWSTR font_path )
 {
-    char *unix_name;
+    char *unix_name = get_ttf_file_name( font_file, font_path );
     struct fontdir fontdir;
     BOOL ret = FALSE;
 
-    RtlRunOnceExecuteOnce( &init_once, freetype_lazy_init, NULL, NULL );
-
-    unix_name = get_ttf_file_name( font_file, font_path );
     if (!unix_name || !get_fontdir( unix_name, &fontdir ))
         SetLastError( ERROR_INVALID_PARAMETER );
     else
@@ -4169,6 +4156,8 @@ static BOOL init_freetype(void)
     FT_SimpleVersion = ((FT_Version.major << 16) & 0xff0000) |
                        ((FT_Version.minor <<  8) & 0x00ff00) |
                        ((FT_Version.patch      ) & 0x0000ff);
+
+    font_driver = &freetype_funcs;
     return TRUE;
 
 sym_not_found:
@@ -4352,13 +4341,21 @@ static void reorder_font_list(void)
     set_default( default_sans_list );
 }
 
-static DWORD WINAPI freetype_lazy_init(RTL_RUN_ONCE *once, void *param, void **context)
+/*************************************************************
+ *    WineEngInit
+ *
+ * Initialize FreeType library and create a list of available faces
+ */
+BOOL WineEngInit(void)
 {
     HKEY hkey;
     DWORD disposition;
     HANDLE font_mutex;
 
-    if(!init_freetype()) return TRUE;
+    /* update locale dependent font info in registry */
+    update_font_info();
+
+    if(!init_freetype()) return FALSE;
 
 #ifdef SONAME_LIBFONTCONFIG
     init_fontconfig();
@@ -4384,7 +4381,7 @@ static DWORD WINAPI freetype_lazy_init(RTL_RUN_ONCE *once, void *param, void **c
     if((font_mutex = CreateMutexW(NULL, FALSE, font_mutex_nameW)) == NULL)
     {
         ERR("Failed to create font mutex\n");
-        return TRUE;
+        return FALSE;
     }
     WaitForSingleObject(font_mutex, INFINITE);
 
@@ -4408,21 +4405,6 @@ static DWORD WINAPI freetype_lazy_init(RTL_RUN_ONCE *once, void *param, void **c
     init_system_links();
     
     ReleaseMutex(font_mutex);
-    return TRUE;
-}
-
-/*************************************************************
- *    WineEngInit
- *
- * Initialize FreeType library and create a list of available faces
- */
-BOOL WineEngInit(void)
-{
-    /* update locale dependent font info in registry */
-    update_font_info();
-
-    /* The rest will be initialized later in freetype_lazy_init */
-    font_driver = &freetype_funcs;
     return TRUE;
 }
 
@@ -5122,12 +5104,8 @@ static BOOL select_charmap(FT_Face ft_face, FT_Encoding encoding)
 static BOOL freetype_CreateDC( PHYSDEV *dev, LPCWSTR driver, LPCWSTR device,
                                LPCWSTR output, const DEVMODEW *devmode )
 {
-    struct freetype_physdev *physdev;
+    struct freetype_physdev *physdev = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*physdev) );
 
-    RtlRunOnceExecuteOnce( &init_once, freetype_lazy_init, NULL, NULL );
-    if (!ft_handle) return FALSE;
-
-    physdev = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*physdev) );
     if (!physdev) return FALSE;
     push_dc_driver( dev, &physdev->dev, &freetype_funcs );
     return TRUE;
@@ -7271,6 +7249,7 @@ static DWORD get_glyph_outline(GdiFont *incoming_font, UINT glyph, UINT format,
     case WINE_GGO_HBGR_BITMAP:
     case WINE_GGO_VRGB_BITMAP:
     case WINE_GGO_VBGR_BITMAP:
+#ifdef FT_LCD_FILTER_H
       {
         switch (ft_face->glyph->format)
         {
@@ -7356,11 +7335,8 @@ static DWORD get_glyph_outline(GdiFont *incoming_font, UINT glyph, UINT format,
             if ( needsTransform )
                 pFT_Outline_Transform (&ft_face->glyph->outline, &transMatTategaki);
 
-#ifdef FT_LCD_FILTER_H
             if ( pFT_Library_SetLcdFilter )
                 pFT_Library_SetLcdFilter( library, FT_LCD_FILTER_DEFAULT );
-#endif
-
             pFT_Render_Glyph (ft_face->glyph, render_mode);
 
             src = ft_face->glyph->bitmap.buffer;
@@ -7441,6 +7417,9 @@ static DWORD get_glyph_outline(GdiFont *incoming_font, UINT glyph, UINT format,
 
         break;
       }
+#else
+      return GDI_ERROR;
+#endif
 
     case GGO_NATIVE:
       {
@@ -8477,7 +8456,6 @@ static BOOL freetype_FontIsLinked( PHYSDEV dev )
  */
 BOOL WINAPI GetRasterizerCaps( LPRASTERIZER_STATUS lprs, UINT cbNumBytes)
 {
-    /* RtlRunOnceExecuteOnce( &init_once, freetype_lazy_init, NULL, NULL ); */
     lprs->nSize = sizeof(RASTERIZER_STATUS);
     lprs->wFlags = TT_AVAILABLE | TT_ENABLED;
     lprs->nLanguageID = 0;

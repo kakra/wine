@@ -70,7 +70,6 @@ static const struct object_ops symlink_ops =
     directory_link_name,          /* link_name */
     default_unlink_name,          /* unlink_name */
     no_open_file,                 /* open_file */
-    no_alloc_handle,              /* alloc_handle */
     no_close_handle,              /* close_handle */
     symlink_destroy               /* destroy */
 };
@@ -87,7 +86,8 @@ static void symlink_dump( struct object *obj, int verbose )
 
 static struct object_type *symlink_get_type( struct object *obj )
 {
-    static const struct unicode_str str = { type_SymbolicLink, sizeof(type_SymbolicLink) };
+    static const WCHAR name[] = {'S','y','m','b','o','l','i','c','L','i','n','k'};
+    static const struct unicode_str str = { name, sizeof(name) };
     return get_object_type( &str );
 }
 

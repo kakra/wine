@@ -830,16 +830,14 @@ static HRESULT WINAPI ClientRpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER ifac
     ORPC_EXTENT_ARRAY orpc_ext_array;
     WIRE_ORPC_EXTENT *first_wire_orpc_extent = NULL;
     HRESULT hrFault = S_OK;
-    APARTMENT *apt = apartment_get_current_or_mta();
 
     TRACE("(%p) iMethod=%d\n", olemsg, olemsg->iMethod);
 
-    hr = ClientRpcChannelBuffer_IsCorrectApartment(This, apt);
+    hr = ClientRpcChannelBuffer_IsCorrectApartment(This, COM_CurrentApt());
     if (hr != S_OK)
     {
         ERR("called from wrong apartment, should have been 0x%s\n",
             wine_dbgstr_longlong(This->oxid));
-        if (apt) apartment_release(apt);
         return RPC_E_WRONG_THREAD;
     }
     /* This situation should be impossible in multi-threaded apartments,
@@ -847,12 +845,11 @@ static HRESULT WINAPI ClientRpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER ifac
      * Note: doing a COM call during the processing of a sent message is
      * only disallowed if a client call is already being waited for
      * completion */
-    if (!apt->multi_threaded &&
+    if (!COM_CurrentApt()->multi_threaded &&
         COM_CurrentInfo()->pending_call_count_client &&
         InSendMessage())
     {
         ERR("can't make an outgoing COM call in response to a sent message\n");
-        apartment_release(apt);
         return RPC_E_CANTCALLOUT_ININPUTSYNCCALL;
     }
 
@@ -970,7 +967,6 @@ static HRESULT WINAPI ClientRpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER ifac
 
     TRACE("-- 0x%08x\n", hr);
 
-    apartment_release(apt);
     return hr;
 }
 
@@ -1098,7 +1094,7 @@ static const IRpcChannelBufferVtbl ServerRpcChannelBufferVtbl =
 HRESULT RPC_CreateClientChannel(const OXID *oxid, const IPID *ipid,
                                 const OXID_INFO *oxid_info,
                                 DWORD dest_context, void *dest_context_data,
-                                IRpcChannelBuffer **chan, APARTMENT *apt)
+                                IRpcChannelBuffer **chan)
 {
     ClientRpcChannelBuffer *This;
     WCHAR                   endpoint[200];
@@ -1152,7 +1148,7 @@ HRESULT RPC_CreateClientChannel(const OXID *oxid, const IPID *ipid,
     This->super.dest_context = dest_context;
     This->super.dest_context_data = dest_context_data;
     This->bind = bind;
-    apartment_getoxid(apt, &This->oxid);
+    apartment_getoxid(COM_CurrentApt(), &This->oxid);
     This->server_pid = oxid_info->dwPid;
     This->event = NULL;
 
@@ -1648,7 +1644,7 @@ void RPC_StartRemoting(struct apartment *apt)
 
         /* FIXME: move remote unknown exporting into this function */
     }
-    start_apartment_remote_unknown(apt);
+    start_apartment_remote_unknown();
 }
 
 

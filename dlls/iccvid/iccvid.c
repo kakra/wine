@@ -169,10 +169,6 @@ int x, y;
     }
 }
 
-static inline int get_stride(int width, int depth)
-{
-    return ((depth * width + 31) >> 3) & ~3;
-}
 
 /* ------------------------------------------------------------------------ */
 static void cvid_v4_32(unsigned char *frm, unsigned char *limit, int stride, BOOL inverted,
@@ -454,7 +450,7 @@ static void decode_cinepak(cinepak_info *cvinfo, unsigned char *buf, int size,
             break;
         }
 
-    frm_stride = get_stride(out_width, bpp * 8);
+    frm_stride = out_width * bpp;
     frm_ptr = output;
 
     if(frame.length != size)
@@ -839,9 +835,9 @@ static LRESULT ICCVID_DecompressGetFormat( ICCVID_Info *info, LPBITMAPINFO in, L
     if( out )
     {
         memcpy( out, in, size );
-        out->bmiHeader.biBitCount = 24;
         out->bmiHeader.biCompression = BI_RGB;
-        out->bmiHeader.biSizeImage = get_stride(in->bmiHeader.biWidth, 24) * in->bmiHeader.biHeight;
+        out->bmiHeader.biSizeImage = in->bmiHeader.biHeight
+                                   * in->bmiHeader.biWidth *4;
         return ICERR_OK;
     }
     return size;

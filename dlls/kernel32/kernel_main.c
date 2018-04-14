@@ -88,9 +88,6 @@ static BOOL process_attach( HMODULE module )
     /* Setup registry locale information */
     LOCALE_InitRegistry();
 
-    /* Setup registry timezone information */
-    TIMEZONE_InitRegistry();
-
     /* Setup computer name */
     COMPUTERNAME_Init();
 

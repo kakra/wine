@@ -451,7 +451,6 @@ static void check_undefined_forwards( DLLSPEC *spec )
 /* flag the dll exports that link to an undefined symbol */
 static void check_undefined_exports( DLLSPEC *spec )
 {
-    const char *name;
     int i;
 
     for (i = 0; i < spec->nb_entry_points; i++)
@@ -459,8 +458,7 @@ static void check_undefined_exports( DLLSPEC *spec )
         ORDDEF *odp = &spec->entry_points[i];
         if (odp->type == TYPE_STUB || odp->type == TYPE_ABS || odp->type == TYPE_VARIABLE) continue;
         if (odp->flags & FLAG_FORWARD) continue;
-        name = odp->impl_name ? odp->impl_name : odp->link_name;
-        if (find_name( name, &undef_symbols ))
+        if (find_name( odp->link_name, &undef_symbols ))
         {
             switch(odp->type)
             {
@@ -472,14 +470,14 @@ static void check_undefined_exports( DLLSPEC *spec )
                 if (link_ext_symbols)
                 {
                     odp->flags |= FLAG_EXT_LINK;
-                    strarray_add( &ext_link_imports, name, NULL );
+                    strarray_add( &ext_link_imports, odp->link_name, NULL );
                 }
                 else error( "%s:%d: function '%s' not defined\n",
-                            spec->src_name, odp->lineno, name );
+                            spec->src_name, odp->lineno, odp->link_name );
                 break;
             default:
                 error( "%s:%d: external symbol '%s' is not a function\n",
-                       spec->src_name, odp->lineno, name );
+                       spec->src_name, odp->lineno, odp->link_name );
                 break;
             }
         }

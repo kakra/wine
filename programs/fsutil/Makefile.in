@@ -1,8 +1,5 @@
 MODULE    = fsutil.exe
 APPMODE   = -mconsole -municode
-IMPORTS   = user32
 
 C_SRCS = \
 	main.c
-
-RC_SRCS = fsutil.rc

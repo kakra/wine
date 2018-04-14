@@ -50,17 +50,10 @@
 #include "winternl.h"
 #include "wine/library.h"
 
-struct notify_event
-{
-    struct list      entry;     /* entry in list of events */
-    struct event    *event;     /* event to set */
-};
-
 struct notify
 {
-    unsigned int      refcount; /* number of references */
     struct list       entry;    /* entry in list of notifications */
-    struct list       events;   /* list of events to set when changing this key */
+    struct event     *event;    /* event to set when changing this key */
     int               subtree;  /* true if subtree notification */
     unsigned int      filter;   /* which events to notify on */
     obj_handle_t      hkey;     /* hkey associated with this notification */
@@ -177,7 +170,6 @@ static const struct object_ops key_ops =
     no_link_name,            /* link_name */
     NULL,                    /* unlink_name */
     no_open_file,            /* open_file */
-    no_alloc_handle,         /* alloc_handle */
     key_close_handle,        /* close_handle */
     key_destroy              /* destroy */
 };
@@ -275,8 +267,7 @@ static void save_subkeys( const struct key *key, const struct key *base, FILE *f
     {
         fprintf( f, "\n[" );
         if (key != base) dump_path( key, base, f );
-        fprintf( f, "] %u %u\n", (unsigned int)((key->modif - ticks_1601_to_1970) / TICKS_PER_SEC),
-                                 (unsigned int)((key->modif - ticks_1601_to_1970) % TICKS_PER_SEC) );
+        fprintf( f, "] %u\n", (unsigned int)((key->modif - ticks_1601_to_1970) / TICKS_PER_SEC) );
         fprintf( f, "#time=%x%08x\n", (unsigned int)(key->modif >> 32), (unsigned int)key->modif );
         if (key->class)
         {
@@ -314,35 +305,25 @@ static void key_dump( struct object *obj, int verbose )
 
 static struct object_type *key_get_type( struct object *obj )
 {
-    static const struct unicode_str str = { type_Key, sizeof(type_Key) };
+    static const WCHAR name[] = {'K','e','y'};
+    static const struct unicode_str str = { name, sizeof(name) };
     return get_object_type( &str );
 }
 
 /* notify waiter and maybe delete the notification */
 static void do_notification( struct key *key, struct notify *notify, int del )
 {
-    void *ptr;
-
+    if (notify->event)
+    {
+        set_event( notify->event );
+        release_object( notify->event );
+        notify->event = NULL;
+    }
     if (del)
+    {
         list_remove( &notify->entry );
-    else
-    {
-        assert( notify->refcount < INT_MAX );
-        notify->refcount++;
-    }
-
-    while ((ptr = list_head( &notify->events )))
-    {
-        struct notify_event *notify_event = LIST_ENTRY( ptr, struct notify_event, entry );
-        list_remove( &notify_event->entry );
-        set_event( notify_event->event );
-        release_object( notify_event->event );
-        free( notify_event );
-    }
-
-    assert( notify->refcount );
-    if (!--notify->refcount)
         free( notify );
+    }
 }
 
 static inline struct notify *find_notify( struct key *key, struct process *process, obj_handle_t hkey )
@@ -1380,8 +1361,8 @@ static struct key *load_key( struct key *base, const char *buffer, int prefix_le
 {
     WCHAR *p;
     struct unicode_str name;
-    int res, num_items;
-    unsigned int mod, mod_ticks;
+    int res;
+    unsigned int mod;
     data_size_t len;
 
     if (!get_file_tmp_space( info, strlen(buffer) * sizeof(WCHAR) )) return NULL;
@@ -1392,11 +1373,10 @@ static struct key *load_key( struct key *base, const char *buffer, int prefix_le
         file_read_error( "Malformed key", info );
         return NULL;
     }
-
-    *modif = current_time;
-    num_items = sscanf( buffer + res, " %u %u", &mod, &mod_ticks );
-    if (num_items >= 1) *modif = (timeout_t)mod * TICKS_PER_SEC + ticks_1601_to_1970;
-    if (num_items >= 2) *modif += mod_ticks;
+    if (sscanf( buffer + res, " %u", &mod ) == 1)
+        *modif = (timeout_t)mod * TICKS_PER_SEC + ticks_1601_to_1970;
+    else
+        *modif = current_time;
 
     p = info->tmp;
     while (prefix_len && *p) { if (*p++ == '\\') prefix_len--; }
@@ -2289,7 +2269,6 @@ DECL_HANDLER(set_registry_notification)
     struct key *key;
     struct event *event;
     struct notify *notify;
-    struct notify_event *notify_event;
 
     key = get_hkey_obj( req->hkey, KEY_NOTIFY );
     if (key)
@@ -2298,21 +2277,29 @@ DECL_HANDLER(set_registry_notification)
         if (event)
         {
             notify = find_notify( key, current->process, req->hkey );
-            if (!notify && (notify = mem_alloc( sizeof(*notify) )))
+            if (notify)
             {
-                notify->refcount = 1;
-                list_init( &notify->events );
-                notify->subtree = req->subtree;
-                notify->filter  = req->filter;
-                notify->hkey    = req->hkey;
-                notify->process = current->process;
-                list_add_head( &key->notify_list, &notify->entry );
+                if (notify->event)
+                    release_object( notify->event );
+                grab_object( event );
+                notify->event = event;
             }
-            if (notify && (notify_event = mem_alloc( sizeof(*notify_event) )))
+            else
             {
-                grab_object(event);
-                notify_event->event = event;
-                list_add_tail( &notify->events, &notify_event->entry );
+                notify = mem_alloc( sizeof(*notify) );
+                if (notify)
+                {
+                    grab_object( event );
+                    notify->event   = event;
+                    notify->subtree = req->subtree;
+                    notify->filter  = req->filter;
+                    notify->hkey    = req->hkey;
+                    notify->process = current->process;
+                    list_add_head( &key->notify_list, &notify->entry );
+                }
+            }
+            if (notify)
+            {
                 reset_event( event );
                 set_error( STATUS_PENDING );
             }

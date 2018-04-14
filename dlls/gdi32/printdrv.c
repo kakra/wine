@@ -72,9 +72,9 @@ INT WINAPI StartDocW(HDC hdc, const DOCINFOW* doc)
     INT ret;
     DC *dc = get_dc_ptr( hdc );
 
-    TRACE("DocName %s, Output %s, Datatype %s, fwType %#x\n",
+    TRACE("DocName = %s Output = %s Datatype = %s\n",
           debugstr_w(doc->lpszDocName), debugstr_w(doc->lpszOutput),
-          debugstr_w(doc->lpszDatatype), doc->fwType);
+          debugstr_w(doc->lpszDatatype));
 
     if(!dc) return SP_ERROR;
 

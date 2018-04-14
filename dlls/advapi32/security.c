@@ -48,7 +48,6 @@
 WINE_DEFAULT_DEBUG_CHANNEL(advapi);
 
 static BOOL ParseStringSidToSid(LPCWSTR StringSid, PSID pSid, LPDWORD cBytes);
-static DWORD trustee_to_sid(DWORD nDestinationSidLength, PSID pDestinationSid, PTRUSTEEW pTrustee);
 
 typedef struct _ACEFLAG
 {
@@ -127,7 +126,7 @@ static const WELLKNOWNSID WellKnownSids[] =
     { {'M','E'}, WinMediumLabelSid, { SID_REVISION, 1, { SECURITY_MANDATORY_LABEL_AUTHORITY}, { SECURITY_MANDATORY_MEDIUM_RID } } },
     { {'H','I'}, WinHighLabelSid, { SID_REVISION, 1, { SECURITY_MANDATORY_LABEL_AUTHORITY}, { SECURITY_MANDATORY_HIGH_RID } } },
     { {'S','I'}, WinSystemLabelSid, { SID_REVISION, 1, { SECURITY_MANDATORY_LABEL_AUTHORITY}, { SECURITY_MANDATORY_SYSTEM_RID } } },
-    { {'A','C'}, WinBuiltinAnyPackageSid, { SID_REVISION, 2, { SECURITY_APP_PACKAGE_AUTHORITY }, { SECURITY_APP_PACKAGE_BASE_RID, SECURITY_BUILTIN_PACKAGE_ANY_PACKAGE } } },
+    { {0,0}, WinBuiltinAnyPackageSid, { SID_REVISION, 2, { SECURITY_APP_PACKAGE_AUTHORITY }, { SECURITY_APP_PACKAGE_BASE_RID, SECURITY_BUILTIN_PACKAGE_ANY_PACKAGE } } },
 };
 
 /* these SIDs must be constructed as relative to some domain - only the RID is well-known */
@@ -188,7 +187,7 @@ static const WCHAR Domain_Admins[] = { 'D','o','m','a','i','n',' ','A','d','m','
 static const WCHAR Domain_Computers[] = { 'D','o','m','a','i','n',' ','C','o','m','p','u','t','e','r','s',0 };
 static const WCHAR Domain_Controllers[] = { 'D','o','m','a','i','n',' ','C','o','n','t','r','o','l','l','e','r','s',0 };
 static const WCHAR Domain_Guests[] = { 'D','o','m','a','i','n',' ','G','u','e','s','t','s',0 };
-static const WCHAR None[] = { 'N','o','n','e',0 };
+static const WCHAR Domain_Users[] = { 'D','o','m','a','i','n',' ','U','s','e','r','s',0 };
 static const WCHAR Enterprise_Admins[] = { 'E','n','t','e','r','p','r','i','s','e',' ','A','d','m','i','n','s',0 };
 static const WCHAR ENTERPRISE_DOMAIN_CONTROLLERS[] = { 'E','N','T','E','R','P','R','I','S','E',' ','D','O','M','A','I','N',' ','C','O','N','T','R','O','L','L','E','R','S',0 };
 static const WCHAR Everyone[] = { 'E','v','e','r','y','o','n','e',0 };
@@ -831,60 +830,6 @@ BOOL WINAPI SetThreadToken(PHANDLE thread, HANDLE token)
                                                  ThreadImpersonationToken, &token, sizeof token ));
 }
 
-static BOOL allocate_groups(TOKEN_GROUPS **groups_ret, SID_AND_ATTRIBUTES *sids, DWORD count)
-{
-    TOKEN_GROUPS *groups;
-    DWORD i;
-
-    if (!count)
-    {
-        *groups_ret = NULL;
-        return TRUE;
-    }
-
-    groups = (TOKEN_GROUPS *)heap_alloc(FIELD_OFFSET(TOKEN_GROUPS, Groups) +
-                                        count * sizeof(SID_AND_ATTRIBUTES));
-    if (!groups)
-    {
-        SetLastError(ERROR_OUTOFMEMORY);
-        return FALSE;
-    }
-
-    groups->GroupCount = count;
-    for (i = 0; i < count; i++)
-        groups->Groups[i] = sids[i];
-
-    *groups_ret = groups;
-    return TRUE;
-}
-
-static BOOL allocate_privileges(TOKEN_PRIVILEGES **privileges_ret, LUID_AND_ATTRIBUTES *privs, DWORD count)
-{
-    TOKEN_PRIVILEGES *privileges;
-    DWORD i;
-
-    if (!count)
-    {
-        *privileges_ret = NULL;
-        return TRUE;
-    }
-
-    privileges = (TOKEN_PRIVILEGES *)heap_alloc(FIELD_OFFSET(TOKEN_PRIVILEGES, Privileges) +
-                                                count * sizeof(LUID_AND_ATTRIBUTES));
-    if (!privileges)
-    {
-        SetLastError(ERROR_OUTOFMEMORY);
-        return FALSE;
-    }
-
-    privileges->PrivilegeCount = count;
-    for (i = 0; i < count; i++)
-        privileges->Privileges[i] = privs[i];
-
-    *privileges_ret = privileges;
-    return TRUE;
-}
-
 /*************************************************************************
  * CreateRestrictedToken [ADVAPI32.@]
  *
@@ -916,33 +861,25 @@ BOOL WINAPI CreateRestrictedToken(
     PSID_AND_ATTRIBUTES restrictSids,
     PHANDLE newToken)
 {
-    TOKEN_PRIVILEGES *delete_privs = NULL;
-    TOKEN_GROUPS *disable_groups = NULL;
-    TOKEN_GROUPS *restrict_sids = NULL;
-    BOOL ret = FALSE;
+    TOKEN_TYPE type;
+    SECURITY_IMPERSONATION_LEVEL level = SecurityAnonymous;
+    DWORD size;
 
-    TRACE("(%p, 0x%x, %u, %p, %u, %p, %u, %p, %p)\n",
+    FIXME("(%p, 0x%x, %u, %p, %u, %p, %u, %p, %p): stub\n",
           baseToken, flags, nDisableSids, disableSids,
           nDeletePrivs, deletePrivs,
           nRestrictSids, restrictSids,
           newToken);
 
-    if (!allocate_groups(&disable_groups, disableSids, nDisableSids))
-        goto done;
-
-    if (!allocate_privileges(&delete_privs, deletePrivs, nDeletePrivs))
-        goto done;
-
-    if (!allocate_groups(&restrict_sids, restrictSids, nRestrictSids))
-        goto done;
-
-    ret = set_ntstatus(NtFilterToken(baseToken, flags, disable_groups, delete_privs, restrict_sids, newToken));
-
-done:
-    heap_free(disable_groups);
-    heap_free(delete_privs);
-    heap_free(restrict_sids);
-    return ret;
+    size = sizeof(type);
+    if (!GetTokenInformation( baseToken, TokenType, &type, size, &size )) return FALSE;
+    if (type == TokenImpersonation)
+    {
+        size = sizeof(level);
+        if (!GetTokenInformation( baseToken, TokenImpersonationLevel, &level, size, &size ))
+            return FALSE;
+    }
+    return DuplicateTokenEx( baseToken, MAXIMUM_ALLOWED, NULL, level, type, newToken );
 }
 
 /*	##############################
@@ -1318,122 +1255,16 @@ DWORD WINAPI BuildSecurityDescriptorW(
     IN ULONG cCountOfAccessEntries,
     IN PEXPLICIT_ACCESSW pListOfAccessEntries,
     IN ULONG cCountOfAuditEntries,
-    IN PEXPLICIT_ACCESSW pListOfAuditEntries,
+    IN PEXPLICIT_ACCESSW pListofAuditEntries,
     IN PSECURITY_DESCRIPTOR pOldSD,
     IN OUT PULONG lpdwBufferLength,
     OUT PSECURITY_DESCRIPTOR* pNewSD)
 { 
-    SECURITY_DESCRIPTOR desc;
-    NTSTATUS status;
-    DWORD ret = ERROR_SUCCESS;
-
-    TRACE("(%p,%p,%d,%p,%d,%p,%p,%p,%p)\n", pOwner, pGroup,
-          cCountOfAccessEntries, pListOfAccessEntries, cCountOfAuditEntries,
-          pListOfAuditEntries, pOldSD, lpdwBufferLength, pNewSD);
+    FIXME("(%p,%p,%d,%p,%d,%p,%p,%p,%p) stub!\n",pOwner,pGroup,
+          cCountOfAccessEntries,pListOfAccessEntries,cCountOfAuditEntries,
+          pListofAuditEntries,pOldSD,lpdwBufferLength,pNewSD);
  
-    if (pOldSD)
-    {
-        SECURITY_DESCRIPTOR_CONTROL control;
-        DWORD desc_size, dacl_size = 0, sacl_size = 0, owner_size = 0, group_size = 0;
-        PACL dacl = NULL, sacl = NULL;
-        PSID owner = NULL, group = NULL;
-        DWORD revision;
-
-        if ((status = RtlGetControlSecurityDescriptor( pOldSD, &control, &revision )) != STATUS_SUCCESS)
-            return RtlNtStatusToDosError( status );
-        if (!(control & SE_SELF_RELATIVE))
-            return ERROR_INVALID_SECURITY_DESCR;
-
-        desc_size = sizeof(desc);
-        status = RtlSelfRelativeToAbsoluteSD( pOldSD, &desc, &desc_size, dacl, &dacl_size, sacl, &sacl_size,
-                                              owner, &owner_size, group, &group_size );
-        if (status == STATUS_BUFFER_TOO_SMALL)
-        {
-            if (dacl_size)
-                dacl = LocalAlloc( LMEM_FIXED, dacl_size );
-            if (sacl_size)
-                sacl = LocalAlloc( LMEM_FIXED, sacl_size );
-            if (owner_size)
-                owner = LocalAlloc( LMEM_FIXED, owner_size );
-            if (group_size)
-                group = LocalAlloc( LMEM_FIXED, group_size );
-
-            desc_size = sizeof(desc);
-            status = RtlSelfRelativeToAbsoluteSD( pOldSD, &desc, &desc_size, dacl, &dacl_size, sacl, &sacl_size,
-                                                  owner, &owner_size, group, &group_size );
-        }
-        if (status != STATUS_SUCCESS)
-        {
-            LocalFree( dacl );
-            LocalFree( sacl );
-            LocalFree( owner );
-            LocalFree( group );
-            return RtlNtStatusToDosError( status );
-        }
-    }
-    else
-    {
-        if ((status = RtlCreateSecurityDescriptor( &desc, SECURITY_DESCRIPTOR_REVISION )) != STATUS_SUCCESS)
-            return RtlNtStatusToDosError( status );
-    }
-
-    if (pOwner)
-    {
-        LocalFree( desc.Owner );
-        desc.Owner = LocalAlloc( LMEM_FIXED, sizeof(MAX_SID) );
-        if ((ret = trustee_to_sid( sizeof(MAX_SID), desc.Owner, pOwner )))
-            goto done;
-    }
-
-    if (pGroup)
-    {
-        LocalFree( desc.Group );
-        desc.Group = LocalAlloc( LMEM_FIXED, sizeof(MAX_SID) );
-        if ((ret = trustee_to_sid( sizeof(MAX_SID), desc.Group, pGroup )))
-            goto done;
-    }
-
-    if (pListOfAccessEntries)
-    {
-        PACL new_dacl;
-
-        if ((ret = SetEntriesInAclW( cCountOfAccessEntries, pListOfAccessEntries, desc.Dacl, &new_dacl )))
-            goto done;
-
-        LocalFree( desc.Dacl );
-        desc.Dacl = new_dacl;
-        desc.Control |= SE_DACL_PRESENT;
-    }
-
-    if (pListOfAuditEntries)
-    {
-        PACL new_sacl;
-
-        if ((ret = SetEntriesInAclW( cCountOfAuditEntries, pListOfAuditEntries, desc.Sacl, &new_sacl )))
-            goto done;
-
-        LocalFree( desc.Sacl );
-        desc.Sacl = new_sacl;
-        desc.Control |= SE_SACL_PRESENT;
-    }
-
-    *lpdwBufferLength = RtlLengthSecurityDescriptor( &desc );
-    *pNewSD = LocalAlloc( LMEM_FIXED, *lpdwBufferLength );
-
-    if ((status = RtlMakeSelfRelativeSD( &desc, *pNewSD, lpdwBufferLength )) != STATUS_SUCCESS)
-    {
-        ret = RtlNtStatusToDosError( status );
-        LocalFree( *pNewSD );
-        *pNewSD = NULL;
-    }
-
-done:
-    /* free absolute descriptor */
-    LocalFree( desc.Owner );
-    LocalFree( desc.Group );
-    LocalFree( desc.Sacl );
-    LocalFree( desc.Dacl );
-    return ret;
+    return ERROR_CALL_NOT_IMPLEMENTED;
 } 
 
 /******************************************************************************
@@ -2465,10 +2296,7 @@ LookupAccountSidW(
                             ac = Domain_Admins;
                             break;
                         case DOMAIN_GROUP_RID_USERS:
-                            /* MSDN says the name of DOMAIN_GROUP_RID_USERS is Domain Users,
-                             * tests show that MSDN seems to be wrong. */
-                            ac = None;
-                            use = 2;
+                            ac = Domain_Users;
                             break;
                         case DOMAIN_GROUP_RID_GUESTS:
                             ac = Domain_Guests;
@@ -3926,56 +3754,6 @@ static void free_trustee_name(TRUSTEE_FORM form, WCHAR *trustee_nameW)
     }
 }
 
-static DWORD trustee_to_sid( DWORD nDestinationSidLength, PSID pDestinationSid, PTRUSTEEW pTrustee )
-{
-    if (pTrustee->MultipleTrusteeOperation == TRUSTEE_IS_IMPERSONATE)
-    {
-        WARN("bad multiple trustee operation %d\n", pTrustee->MultipleTrusteeOperation);
-        return ERROR_INVALID_PARAMETER;
-    }
-
-    switch (pTrustee->TrusteeForm)
-    {
-    case TRUSTEE_IS_SID:
-        if (!CopySid(nDestinationSidLength, pDestinationSid, pTrustee->ptstrName))
-        {
-            WARN("bad sid %p\n", pTrustee->ptstrName);
-            return ERROR_INVALID_PARAMETER;
-        }
-        break;
-    case TRUSTEE_IS_NAME:
-    {
-        DWORD sid_size = nDestinationSidLength;
-        DWORD domain_size = MAX_COMPUTERNAME_LENGTH + 1;
-        SID_NAME_USE use;
-        if (!strcmpW( pTrustee->ptstrName, CURRENT_USER ))
-        {
-            if (!lookup_user_account_name( pDestinationSid, &sid_size, NULL, &domain_size, &use ))
-            {
-                return GetLastError();
-            }
-        }
-        else if (!LookupAccountNameW(NULL, pTrustee->ptstrName, pDestinationSid, &sid_size, NULL, &domain_size, &use))
-        {
-            WARN("bad user name %s\n", debugstr_w(pTrustee->ptstrName));
-            return ERROR_INVALID_PARAMETER;
-        }
-        break;
-    }
-    case TRUSTEE_IS_OBJECTS_AND_SID:
-        FIXME("TRUSTEE_IS_OBJECTS_AND_SID unimplemented\n");
-        break;
-    case TRUSTEE_IS_OBJECTS_AND_NAME:
-        FIXME("TRUSTEE_IS_OBJECTS_AND_NAME unimplemented\n");
-        break;
-    default:
-        WARN("bad trustee form %d\n", pTrustee->TrusteeForm);
-        return ERROR_INVALID_PARAMETER;
-    }
-
-    return ERROR_SUCCESS;
-}
-
 /******************************************************************************
  * SetEntriesInAclA [ADVAPI32.@]
  */
@@ -4071,9 +3849,56 @@ DWORD WINAPI SetEntriesInAclW( ULONG count, PEXPLICIT_ACCESSW pEntries,
               pEntries[i].Trustee.TrusteeForm, pEntries[i].Trustee.TrusteeType,
               pEntries[i].Trustee.ptstrName);
 
-        ret = trustee_to_sid( FIELD_OFFSET(SID, SubAuthority[SID_MAX_SUB_AUTHORITIES]), ppsid[i], &pEntries[i].Trustee);
-        if (ret)
+        if (pEntries[i].Trustee.MultipleTrusteeOperation == TRUSTEE_IS_IMPERSONATE)
+        {
+            WARN("bad multiple trustee operation %d for trustee %d\n", pEntries[i].Trustee.MultipleTrusteeOperation, i);
+            ret = ERROR_INVALID_PARAMETER;
             goto exit;
+        }
+
+        switch (pEntries[i].Trustee.TrusteeForm)
+        {
+        case TRUSTEE_IS_SID:
+            if (!CopySid(FIELD_OFFSET(SID, SubAuthority[SID_MAX_SUB_AUTHORITIES]),
+                         ppsid[i], pEntries[i].Trustee.ptstrName))
+            {
+                WARN("bad sid %p for trustee %d\n", pEntries[i].Trustee.ptstrName, i);
+                ret = ERROR_INVALID_PARAMETER;
+                goto exit;
+            }
+            break;
+        case TRUSTEE_IS_NAME:
+        {
+            DWORD sid_size = FIELD_OFFSET(SID, SubAuthority[SID_MAX_SUB_AUTHORITIES]);
+            DWORD domain_size = MAX_COMPUTERNAME_LENGTH + 1;
+            SID_NAME_USE use;
+            if (!strcmpW( pEntries[i].Trustee.ptstrName, CURRENT_USER ))
+            {
+                if (!lookup_user_account_name( ppsid[i], &sid_size, NULL, &domain_size, &use ))
+                {
+                    ret = GetLastError();
+                    goto exit;
+                }
+            }
+            else if (!LookupAccountNameW(NULL, pEntries[i].Trustee.ptstrName, ppsid[i], &sid_size, NULL, &domain_size, &use))
+            {
+                WARN("bad user name %s for trustee %d\n", debugstr_w(pEntries[i].Trustee.ptstrName), i);
+                ret = ERROR_INVALID_PARAMETER;
+                goto exit;
+            }
+            break;
+        }
+        case TRUSTEE_IS_OBJECTS_AND_SID:
+            FIXME("TRUSTEE_IS_OBJECTS_AND_SID unimplemented\n");
+            break;
+        case TRUSTEE_IS_OBJECTS_AND_NAME:
+            FIXME("TRUSTEE_IS_OBJECTS_AND_NAME unimplemented\n");
+            break;
+        default:
+            WARN("bad trustee form %d for trustee %d\n", pEntries[i].Trustee.TrusteeForm, i);
+            ret = ERROR_INVALID_PARAMETER;
+            goto exit;
+        }
 
         /* Note: we overestimate the ACL size here as a tradeoff between
          * instructions (simplicity) and memory */
@@ -5694,14 +5519,13 @@ BOOL WINAPI DECLSPEC_HOTPATCH CreateProcessAsUserW(
         LPSTARTUPINFOW lpStartupInfo,
         LPPROCESS_INFORMATION lpProcessInformation )
 {
-    TRACE("%p %s %s %p %p %d 0x%08x %p %s %p %p\n", hToken,
+    FIXME("%p %s %s %p %p %d 0x%08x %p %s %p %p - semi-stub\n", hToken,
           debugstr_w(lpApplicationName), debugstr_w(lpCommandLine), lpProcessAttributes,
           lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment, 
           debugstr_w(lpCurrentDirectory), lpStartupInfo, lpProcessInformation);
 
     /* We should create the process with a suspended main thread */
-    if (!CreateProcessInternalW(hToken,
-                         lpApplicationName,
+    if (!CreateProcessW (lpApplicationName,
                          lpCommandLine,
                          lpProcessAttributes,
                          lpThreadAttributes,
@@ -5710,8 +5534,7 @@ BOOL WINAPI DECLSPEC_HOTPATCH CreateProcessAsUserW(
                          lpEnvironment,
                          lpCurrentDirectory,
                          lpStartupInfo,
-                         lpProcessInformation,
-                         NULL))
+                         lpProcessInformation))
     {
       return FALSE;
     }
@@ -5738,14 +5561,14 @@ BOOL WINAPI CreateProcessWithTokenW(HANDLE token, DWORD logon_flags, LPCWSTR app
         DWORD creation_flags, void *environment, LPCWSTR current_directory, STARTUPINFOW *startup_info,
         PROCESS_INFORMATION *process_information )
 {
-    TRACE("%p 0x%08x %s %s 0x%08x %p %s %p %p\n", token,
+    FIXME("%p 0x%08x %s %s 0x%08x %p %s %p %p - semi-stub\n", token,
           logon_flags, debugstr_w(application_name), debugstr_w(command_line),
           creation_flags, environment, debugstr_w(current_directory),
           startup_info, process_information);
 
     /* FIXME: check if handles should be inherited */
-    return CreateProcessInternalW( token, application_name, command_line, NULL, NULL, FALSE, creation_flags, environment,
-                                   current_directory, startup_info, process_information, NULL );
+    return CreateProcessW( application_name, command_line, NULL, NULL, FALSE, creation_flags, environment,
+                           current_directory, startup_info, process_information );
 }
 
 /******************************************************************************
@@ -6121,67 +5944,6 @@ BOOL WINAPI FileEncryptionStatusA(LPCSTR lpFileName, LPDWORD lpStatus)
     return TRUE;
 }
 
-static NTSTATUS combine_dacls(ACL *parent, ACL *child, ACL **result)
-{
-    NTSTATUS status;
-    ACL *combined;
-    int i;
-
-    /* initialize a combined DACL containing both inherited and new ACEs */
-    combined = heap_alloc_zero(child->AclSize+parent->AclSize);
-    if (!combined)
-        return STATUS_NO_MEMORY;
-
-    status = RtlCreateAcl(combined, parent->AclSize+child->AclSize, ACL_REVISION);
-    if (status != STATUS_SUCCESS)
-    {
-        heap_free(combined);
-        return status;
-    }
-
-    /* copy the new ACEs */
-    for (i=0; i<child->AceCount; i++)
-    {
-        ACE_HEADER *ace;
-
-        if (!GetAce(child, i, (void*)&ace))
-        {
-            WARN("error obtaining new ACE\n");
-            continue;
-        }
-        if (!AddAce(combined, ACL_REVISION, MAXDWORD, ace, ace->AceSize))
-            WARN("error adding new ACE\n");
-    }
-
-    /* copy the inherited ACEs */
-    for (i=0; i<parent->AceCount; i++)
-    {
-        ACE_HEADER *ace;
-
-        if (!GetAce(parent, i, (void*)&ace))
-            continue;
-        if (!(ace->AceFlags & (OBJECT_INHERIT_ACE|CONTAINER_INHERIT_ACE)))
-            continue;
-        if ((ace->AceFlags & (OBJECT_INHERIT_ACE|CONTAINER_INHERIT_ACE)) !=
-                (OBJECT_INHERIT_ACE|CONTAINER_INHERIT_ACE))
-        {
-            FIXME("unsupported flags: %x\n", ace->AceFlags);
-            continue;
-        }
-
-        if (ace->AceFlags & NO_PROPAGATE_INHERIT_ACE)
-            ace->AceFlags &= ~(OBJECT_INHERIT_ACE|CONTAINER_INHERIT_ACE|NO_PROPAGATE_INHERIT_ACE);
-        ace->AceFlags &= ~INHERIT_ONLY_ACE;
-        ace->AceFlags |= INHERITED_ACE;
-
-        if (!AddAce(combined, ACL_REVISION, MAXDWORD, ace, ace->AceSize))
-            WARN("error adding inherited ACE\n");
-    }
-
-    *result = combined;
-    return STATUS_SUCCESS;
-}
-
 /******************************************************************************
  * SetSecurityInfo [ADVAPI32.@]
  */
@@ -6281,10 +6043,41 @@ DWORD WINAPI SetSecurityInfo(HANDLE handle, SE_OBJECT_TYPE ObjectType,
 
                     if (!err)
                     {
-                        status = combine_dacls(parent_dacl, pDacl, &dacl);
+                        int i;
+
+                        dacl = heap_alloc_zero(pDacl->AclSize+parent_dacl->AclSize);
+                        if (!dacl)
+                        {
+                            LocalFree(parent_sd);
+                            return ERROR_NOT_ENOUGH_MEMORY;
+                        }
+                        memcpy(dacl, pDacl, pDacl->AclSize);
+                        dacl->AclSize = pDacl->AclSize+parent_dacl->AclSize;
+
+                        for (i=0; i<parent_dacl->AceCount; i++)
+                        {
+                            ACE_HEADER *ace;
+
+                            if (!GetAce(parent_dacl, i, (void*)&ace))
+                                continue;
+                            if (!(ace->AceFlags & (OBJECT_INHERIT_ACE|CONTAINER_INHERIT_ACE)))
+                                continue;
+                            if ((ace->AceFlags & (OBJECT_INHERIT_ACE|CONTAINER_INHERIT_ACE)) !=
+                                    (OBJECT_INHERIT_ACE|CONTAINER_INHERIT_ACE))
+                            {
+                                FIXME("unsupported flags: %x\n", ace->AceFlags);
+                                continue;
+                            }
+
+                            if (ace->AceFlags & NO_PROPAGATE_INHERIT_ACE)
+                                ace->AceFlags &= ~(OBJECT_INHERIT_ACE|CONTAINER_INHERIT_ACE|NO_PROPAGATE_INHERIT_ACE);
+                            ace->AceFlags &= ~INHERIT_ONLY_ACE;
+                            ace->AceFlags |= INHERITED_ACE;
+
+                            if(!AddAce(dacl, ACL_REVISION, MAXDWORD, ace, ace->AceSize))
+                                WARN("error adding inherited ACE\n");
+                        }
                         LocalFree(parent_sd);
-                        if (status != STATUS_SUCCESS)
-                            return RtlNtStatusToDosError(status);
                     }
                 }
                 else

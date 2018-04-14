@@ -21,7 +21,7 @@
 @ stdcall GetComputerNameW(ptr ptr) kernel32.GetComputerNameW
 @ stdcall GetConsoleWindow() kernel32.GetConsoleWindow
 @ stub GetDurationFormatEx
-@ stdcall GetMaximumProcessorGroupCount() kernel32.GetMaximumProcessorGroupCount
+@ stub GetMaximumProcessorGroupCount
 @ stub GetNamedPipeClientProcessId
 @ stub GetNamedPipeServerProcessId
 @ stdcall GetShortPathNameA(str ptr long) kernel32.GetShortPathNameA

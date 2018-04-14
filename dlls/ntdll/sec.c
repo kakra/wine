@@ -1667,16 +1667,7 @@ NtAccessCheck(
         SecurityDescriptor, ClientToken, DesiredAccess, GenericMapping,
         PrivilegeSet, ReturnLength, GrantedAccess, AccessStatus);
 
-    if (!ReturnLength)
-        return STATUS_ACCESS_VIOLATION;
-
-    if (*ReturnLength == 0)
-    {
-        *ReturnLength = sizeof(PRIVILEGE_SET);
-        return STATUS_BUFFER_TOO_SMALL;
-    }
-
-    if (!PrivilegeSet)
+    if (!PrivilegeSet || !ReturnLength)
         return STATUS_ACCESS_VIOLATION;
 
     SERVER_START_REQ( access_check )

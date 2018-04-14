@@ -1,14 +1,14 @@
-@ stdcall -norelay ExAcquireFastMutexUnsafe(ptr)
+@ stub ExAcquireFastMutexUnsafe
 @ stub ExAcquireRundownProtection
 @ stub ExAcquireRundownProtectionEx
 @ stub ExInitializeRundownProtection
 @ stub ExInterlockedAddLargeStatistic
 @ stub ExInterlockedCompareExchange64
 @ stub ExInterlockedFlushSList
-@ stdcall -norelay ExInterlockedPopEntrySList(ptr ptr) NTOSKRNL_ExInterlockedPopEntrySList
+@ stub ExInterlockedPopEntrySList
 @ stub ExInterlockedPushEntrySList
 @ stub ExReInitializeRundownProtection
-@ stdcall -norelay ExReleaseFastMutexUnsafe(ptr)
+@ stub ExReleaseFastMutexUnsafe
 @ stub ExReleaseResourceLite
 @ stub ExReleaseRundownProtection
 @ stub ExReleaseRundownProtectionEx
@@ -133,7 +133,6 @@
 @ stub ExEnumHandleTable
 @ stub ExEventObjectType
 @ stub ExExtendZone
-@ stdcall -norelay ExfUnblockPushLock(ptr ptr)
 @ stdcall ExFreePool(ptr)
 @ stdcall ExFreePoolWithTag(ptr long)
 @ stub ExFreeToPagedLookasideList
@@ -382,7 +381,7 @@
 @ stub IoGetBootDiskInformation
 @ stdcall IoGetConfigurationInformation()
 @ stdcall IoGetCurrentProcess()
-@ stdcall IoGetDeviceAttachmentBaseRef(ptr)
+@ stub IoGetDeviceAttachmentBaseRef
 @ stub IoGetDeviceInterfaceAlias
 @ stdcall IoGetDeviceInterfaces(ptr ptr long ptr)
 @ stdcall IoGetDeviceObjectPointer(ptr long ptr ptr)
@@ -694,7 +693,7 @@
 @ stub MmLockPagableImageSection
 @ stdcall MmLockPagableSectionByHandle(ptr)
 @ stdcall MmMapIoSpace(int64 long long)
-@ stdcall MmMapLockedPages(ptr long)
+@ stub MmMapLockedPages
 @ stdcall MmMapLockedPagesSpecifyCache(ptr long long ptr long long)
 @ stub MmMapLockedPagesWithReservedMapping
 @ stub MmMapMemoryDumpMdl
@@ -724,7 +723,7 @@
 @ stdcall MmUnlockPagableImageSection(ptr)
 @ stdcall MmUnlockPages(ptr)
 @ stdcall MmUnmapIoSpace(ptr long)
-@ stdcall MmUnmapLockedPages(ptr ptr)
+@ stub MmUnmapLockedPages
 @ stub MmUnmapReservedMapping
 @ stub MmUnmapVideoDisplay
 @ stub MmUnmapViewInSessionSpace
@@ -743,7 +742,7 @@
 @ stdcall NtAllocateLocallyUniqueId(ptr)
 @ stdcall NtAllocateUuids(ptr ptr ptr ptr)
 @ stdcall NtAllocateVirtualMemory(long ptr long ptr long long)
-@ extern NtBuildNumber
+@ stub NtBuildNumber
 @ stdcall NtClose(long)
 @ stdcall NtConnectPort(ptr ptr ptr ptr ptr ptr ptr ptr)
 @ stdcall NtCreateEvent(ptr long ptr long long)
@@ -808,7 +807,6 @@
 @ stub ObFindHandleForObject
 @ stdcall ObGetFilterVersion()
 @ stub ObGetObjectSecurity
-@ stdcall ObGetObjectType(ptr)
 @ stub ObInsertObject
 @ stub ObLogSecurityDescriptor
 @ stub ObMakeTemporaryObject
@@ -846,7 +844,6 @@
 @ stub PoUnregisterSystemState
 @ stdcall ProbeForRead(ptr long long)
 @ stdcall ProbeForWrite(ptr long long)
-@ stdcall PsAcquireProcessExitSynchronization(ptr)
 @ stub PsAssignImpersonationToken
 @ stub PsChargePoolQuota
 @ stub PsChargeProcessNonPagedPoolQuota
@@ -875,7 +872,7 @@
 @ stub PsGetProcessExitProcessCalled
 @ stub PsGetProcessExitStatus
 @ stub PsGetProcessExitTime
-@ stdcall PsGetProcessId(ptr)
+@ stub PsGetProcessId
 @ stub PsGetProcessImageFileName
 @ stub PsGetProcessInheritedFromUniqueProcessId
 @ stub PsGetProcessJob
@@ -908,7 +905,6 @@
 @ stub PsProcessType
 @ stub PsReferenceImpersonationToken
 @ stub PsReferencePrimaryToken
-@ stdcall PsReleaseProcessExitSynchronization(ptr)
 @ stdcall PsRemoveCreateThreadNotifyRoutine(ptr)
 @ stdcall PsRemoveLoadImageNotifyRoutine(ptr)
 @ stub PsRestoreImpersonation
@@ -1096,7 +1092,7 @@
 @ stub RtlIpv6AddressToStringW
 @ stub RtlIpv6StringToAddressA
 @ stub RtlIpv6StringToAddressExA
-@ stdcall RtlIpv6StringToAddressExW(wstr ptr ptr ptr) ntdll.RtlIpv6StringToAddressExW
+@ stub RtlIpv6StringToAddressExW
 @ stub RtlIpv6StringToAddressW
 @ stub RtlIsGenericTableEmpty
 @ stub RtlIsGenericTableEmptyAvl
@@ -1411,14 +1407,14 @@
 @ cdecl -private -arch=i386 _CIsqrt() msvcrt._CIsqrt
 @ cdecl -private _abnormal_termination() msvcrt._abnormal_termination
 @ stdcall -private -arch=i386 -ret64 _alldiv(int64 int64)
-@ stdcall -private -arch=i386 -norelay _alldvrm(int64 int64)
+@ stub _alldvrm
 @ stdcall -private -arch=i386 -ret64 _allmul(int64 int64)
 @ stdcall -private -arch=i386 -norelay _alloca_probe()
 @ stdcall -private -arch=i386 -ret64 _allrem(int64 int64)
 @ stdcall -private -arch=i386 -ret64 _allshl(int64 long)
 @ stdcall -private -arch=i386 -ret64 _allshr(int64 long)
 @ stdcall -private -arch=i386 -ret64 _aulldiv(int64 int64)
-@ stdcall -private -arch=i386 -norelay _aulldvrm(int64 int64)
+@ stub _aulldvrm
 @ stdcall -private -arch=i386 -ret64 _aullrem(int64 int64)
 @ stdcall -private -arch=i386 -ret64 _aullshr(int64 long)
 @ stdcall -private -arch=i386 -norelay _chkstk()
