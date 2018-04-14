@@ -38,6 +38,10 @@ static BOOL (WINAPI *pDuplicateTokenEx)(HANDLE,DWORD,LPSECURITY_ATTRIBUTES,
                                         SECURITY_IMPERSONATION_LEVEL,TOKEN_TYPE,PHANDLE);
 static DWORD (WINAPI *pQueueUserAPC)(PAPCFUNC pfnAPC, HANDLE hThread, ULONG_PTR dwData);
 static BOOL (WINAPI *pCancelIoEx)(HANDLE handle, LPOVERLAPPED lpOverlapped);
+static BOOL (WINAPI *pGetNamedPipeClientProcessId)(HANDLE,ULONG*);
+static BOOL (WINAPI *pGetNamedPipeServerProcessId)(HANDLE,ULONG*);
+static BOOL (WINAPI *pGetNamedPipeClientSessionId)(HANDLE,ULONG*);
+static BOOL (WINAPI *pGetNamedPipeServerSessionId)(HANDLE,ULONG*);
 
 static BOOL user_apc_ran;
 static void CALLBACK user_apc(ULONG_PTR param)
@@ -3086,7 +3090,7 @@ static void create_overlapped_pipe(DWORD mode, HANDLE *client, HANDLE *server)
 
     *server = CreateNamedPipeA(PIPENAME, FILE_FLAG_OVERLAPPED | PIPE_ACCESS_DUPLEX,
                                PIPE_WAIT | mode, 1, 5000, 6000, NMPWAIT_USE_DEFAULT_WAIT, NULL);
-    ok(&server != INVALID_HANDLE_VALUE, "CreateNamedPipe failed: %u\n", GetLastError());
+    ok(*server != INVALID_HANDLE_VALUE, "CreateNamedPipe failed: %u\n", GetLastError());
     test_signaled(*server);
 
     memset(&overlapped, 0, sizeof(overlapped));
@@ -3097,7 +3101,7 @@ static void create_overlapped_pipe(DWORD mode, HANDLE *client, HANDLE *server)
     test_not_signaled(overlapped.hEvent);
 
     *client = CreateFileA(PIPENAME, GENERIC_READ | GENERIC_WRITE, 0, &sec_attr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
-    ok(*server != INVALID_HANDLE_VALUE, "CreateFile failed: %u\n", GetLastError());
+    ok(*client != INVALID_HANDLE_VALUE, "CreateFile failed: %u\n", GetLastError());
 
     res = SetNamedPipeHandleState(*client, &read_mode, NULL, NULL);
     ok(res, "SetNamedPipeHandleState failed: %u\n", GetLastError());
@@ -3283,6 +3287,311 @@ static void test_TransactNamedPipe(void)
     CloseHandle(server);
 }
 
+static HANDLE create_overlapped_server( OVERLAPPED *overlapped )
+{
+    HANDLE pipe;
+    BOOL ret;
+
+    pipe = CreateNamedPipeA(PIPENAME, FILE_FLAG_OVERLAPPED | PIPE_ACCESS_DUPLEX, PIPE_READMODE_BYTE | PIPE_WAIT,
+                            1, 5000, 6000, NMPWAIT_USE_DEFAULT_WAIT, NULL);
+    ok(pipe != INVALID_HANDLE_VALUE, "got %u\n", GetLastError());
+    ret = ConnectNamedPipe(pipe, overlapped);
+    ok(!ret && GetLastError() == ERROR_IO_PENDING, "got %u\n", GetLastError());
+    return pipe;
+}
+
+static void child_process_check_pid(DWORD server_pid)
+{
+    DWORD current = GetProcessId(GetCurrentProcess());
+    HANDLE pipe;
+    ULONG pid;
+    BOOL ret;
+
+    pipe = CreateFileA(PIPENAME, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    ok(pipe != INVALID_HANDLE_VALUE, "got %u\n", GetLastError());
+
+    pid = 0;
+    ret = pGetNamedPipeClientProcessId(pipe, &pid);
+    ok(ret, "got %u\n", GetLastError());
+    ok(pid == current, "got %04x\n", pid);
+
+    pid = 0;
+    ret = pGetNamedPipeServerProcessId(pipe, &pid);
+    ok(ret, "got %u\n", GetLastError());
+    ok(pid == server_pid, "got %04x expected %04x\n", pid, server_pid);
+    CloseHandle(pipe);
+}
+
+static HANDLE create_check_id_process(const char *verb, DWORD id)
+{
+    STARTUPINFOA si = {sizeof(si)};
+    PROCESS_INFORMATION info;
+    char **argv, buf[MAX_PATH];
+    BOOL ret;
+
+    winetest_get_mainargs(&argv);
+    sprintf(buf, "\"%s\" pipe %s %x", argv[0], verb, id);
+    ret = CreateProcessA(NULL, buf, NULL, NULL, TRUE, 0, NULL, NULL, &si, &info);
+    ok(ret, "got %u\n", GetLastError());
+    CloseHandle(info.hThread);
+    return info.hProcess;
+}
+
+static void test_namedpipe_process_id(void)
+{
+    HANDLE client, server, process;
+    DWORD current = GetProcessId(GetCurrentProcess());
+    OVERLAPPED overlapped;
+    ULONG pid;
+    BOOL ret;
+
+    if (!pGetNamedPipeClientProcessId)
+    {
+        win_skip("GetNamedPipeClientProcessId not available\n");
+        return;
+    }
+
+    create_overlapped_pipe(PIPE_TYPE_BYTE, &client, &server);
+
+    SetLastError(0xdeadbeef);
+    ret = pGetNamedPipeClientProcessId(server, NULL);
+    ok(!ret, "success\n");
+    todo_wine ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER, "got %u\n", GetLastError());
+
+    pid = 0;
+    ret = pGetNamedPipeClientProcessId(server, &pid);
+    ok(ret, "got %u\n", GetLastError());
+    ok(pid == current, "got %04x expected %04x\n", pid, current);
+
+    pid = 0;
+    ret = pGetNamedPipeClientProcessId(client, &pid);
+    ok(ret, "got %u\n", GetLastError());
+    ok(pid == current, "got %04x expected %04x\n", pid, current);
+
+    SetLastError(0xdeadbeef);
+    ret = pGetNamedPipeServerProcessId(server, NULL);
+    ok(!ret, "success\n");
+    todo_wine ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER, "got %u\n", GetLastError());
+
+    pid = 0;
+    ret = pGetNamedPipeServerProcessId(client, &pid);
+    ok(ret, "got %u\n", GetLastError());
+    ok(pid == current, "got %04x expected %04x\n", pid, current);
+
+    pid = 0;
+    ret = pGetNamedPipeServerProcessId(server, &pid);
+    ok(ret, "got %u\n", GetLastError());
+    ok(pid == current, "got %04x expected %04x\n", pid, current);
+
+    /* closed client handle */
+    CloseHandle(client);
+    pid = 0;
+    ret = pGetNamedPipeClientProcessId(server, &pid);
+    ok(ret, "got %u\n", GetLastError());
+    ok(pid == current, "got %04x expected %04x\n", pid, current);
+
+    pid = 0;
+    ret = pGetNamedPipeServerProcessId(server, &pid);
+    ok(ret, "got %u\n", GetLastError());
+    ok(pid == current, "got %04x expected %04x\n", pid, current);
+    CloseHandle(server);
+
+    /* disconnected server */
+    create_overlapped_pipe(PIPE_TYPE_BYTE, &client, &server);
+    DisconnectNamedPipe(server);
+
+    SetLastError(0xdeadbeef);
+    ret = pGetNamedPipeClientProcessId(server, &pid);
+    todo_wine ok(!ret, "success\n");
+    todo_wine ok(GetLastError() == ERROR_NOT_FOUND, "got %u\n", GetLastError());
+
+    pid = 0;
+    ret = pGetNamedPipeServerProcessId(server, &pid);
+    ok(ret, "got %u\n", GetLastError());
+    ok(pid == current, "got %04x expected %04x\n", pid, current);
+
+    SetLastError(0xdeadbeef);
+    ret = pGetNamedPipeClientProcessId(client, &pid);
+    todo_wine ok(!ret, "success\n");
+    todo_wine ok(GetLastError() == ERROR_PIPE_NOT_CONNECTED, "got %u\n", GetLastError());
+
+    SetLastError(0xdeadbeef);
+    ret = pGetNamedPipeServerProcessId(client, &pid);
+    todo_wine ok(!ret, "success\n");
+    todo_wine ok(GetLastError() == ERROR_PIPE_NOT_CONNECTED, "got %u\n", GetLastError());
+    CloseHandle(client);
+    CloseHandle(server);
+
+    /* closed server handle */
+    create_overlapped_pipe(PIPE_TYPE_BYTE, &client, &server);
+    CloseHandle(server);
+
+    pid = 0;
+    ret = pGetNamedPipeClientProcessId(client, &pid);
+    ok(ret, "got %u\n", GetLastError());
+    ok(pid == current, "got %04x expected %04x\n", pid, current);
+
+    pid = 0;
+    ret = pGetNamedPipeServerProcessId(client, &pid);
+    ok(ret, "got %u\n", GetLastError());
+    ok(pid == current, "got %04x expected %04x\n", pid, current);
+    CloseHandle(client);
+
+    /* different process */
+    memset(&overlapped, 0, sizeof(overlapped));
+    overlapped.hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+    server = create_overlapped_server( &overlapped );
+    ok(server != INVALID_HANDLE_VALUE, "got %u\n", GetLastError());
+
+    process = create_check_id_process("checkpid", GetProcessId(GetCurrentProcess()));
+    winetest_wait_child_process(process);
+
+    CloseHandle(overlapped.hEvent);
+    CloseHandle(process);
+    CloseHandle(server);
+}
+
+static void child_process_check_session_id(DWORD server_id)
+{
+    DWORD current;
+    HANDLE pipe;
+    ULONG id;
+    BOOL ret;
+
+    ProcessIdToSessionId(GetProcessId(GetCurrentProcess()), &current);
+
+    pipe = CreateFileA(PIPENAME, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    ok(pipe != INVALID_HANDLE_VALUE, "got %u\n", GetLastError());
+
+    id = 0;
+    ret = pGetNamedPipeClientSessionId(pipe, &id);
+    ok(ret, "got %u\n", GetLastError());
+    ok(id == current, "got %04x\n", id);
+
+    id = 0;
+    ret = pGetNamedPipeServerSessionId(pipe, &id);
+    ok(ret, "got %u\n", GetLastError());
+    ok(id == server_id, "got %04x expected %04x\n", id, server_id);
+    CloseHandle(pipe);
+}
+
+static void test_namedpipe_session_id(void)
+{
+    HANDLE client, server, process;
+    OVERLAPPED overlapped;
+    DWORD current;
+    ULONG id;
+    BOOL ret;
+
+    if (!pGetNamedPipeClientSessionId)
+    {
+        win_skip("GetNamedPipeClientSessionId not available\n");
+        return;
+    }
+
+    ProcessIdToSessionId(GetProcessId(GetCurrentProcess()), &current);
+
+    create_overlapped_pipe(PIPE_TYPE_BYTE, &client, &server);
+
+    SetLastError(0xdeadbeef);
+    ret = pGetNamedPipeClientSessionId(server, NULL);
+    ok(!ret, "success\n");
+    todo_wine ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER, "got %u\n", GetLastError());
+
+    id = 0;
+    ret = pGetNamedPipeClientSessionId(server, &id);
+    ok(ret, "got %u\n", GetLastError());
+    ok(id == current, "got %u expected %u\n", id, current);
+
+    id = 0;
+    ret = pGetNamedPipeClientSessionId(client, &id);
+    ok(ret, "got %u\n", GetLastError());
+    ok(id == current, "got %u expected %u\n", id, current);
+
+    SetLastError(0xdeadbeef);
+    ret = pGetNamedPipeServerSessionId(server, NULL);
+    ok(!ret, "success\n");
+    todo_wine ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER, "got %u\n", GetLastError());
+
+    id = 0;
+    ret = pGetNamedPipeServerSessionId(client, &id);
+    ok(ret, "got %u\n", GetLastError());
+    ok(id == current, "got %u expected %u\n", id, current);
+
+    id = 0;
+    ret = pGetNamedPipeServerSessionId(server, &id);
+    ok(ret, "got %u\n", GetLastError());
+    ok(id == current, "got %u expected %u\n", id, current);
+
+    /* closed client handle */
+    CloseHandle(client);
+
+    id = 0;
+    ret = pGetNamedPipeClientSessionId(server, &id);
+    ok(ret, "got %u\n", GetLastError());
+    ok(id == current, "got %04x expected %04x\n", id, current);
+
+    id = 0;
+    ret = pGetNamedPipeServerSessionId(server, &id);
+    ok(ret, "got %u\n", GetLastError());
+    ok(id == current, "got %04x expected %04x\n", id, current);
+    CloseHandle(server);
+
+    /* disconnected server */
+    create_overlapped_pipe(PIPE_TYPE_BYTE, &client, &server);
+    DisconnectNamedPipe(server);
+
+    SetLastError(0xdeadbeef);
+    ret = pGetNamedPipeClientSessionId(server, &id);
+    todo_wine ok(!ret, "success\n");
+    todo_wine ok(GetLastError() == ERROR_NOT_FOUND, "got %u\n", GetLastError());
+
+    id = 0;
+    ret = pGetNamedPipeServerSessionId(server, &id);
+    ok(ret, "got %u\n", GetLastError());
+    ok(id == current, "got %04x expected %04x\n", id, current);
+
+    SetLastError(0xdeadbeef);
+    ret = pGetNamedPipeClientSessionId(client, &id);
+    todo_wine ok(!ret, "success\n");
+    todo_wine ok(GetLastError() == ERROR_PIPE_NOT_CONNECTED, "got %u\n", GetLastError());
+
+    SetLastError(0xdeadbeef);
+    ret = pGetNamedPipeServerSessionId(client, &id);
+    todo_wine ok(!ret, "success\n");
+    todo_wine ok(GetLastError() == ERROR_PIPE_NOT_CONNECTED, "got %u\n", GetLastError());
+    CloseHandle(client);
+    CloseHandle(server);
+
+    /* closed server handle */
+    create_overlapped_pipe(PIPE_TYPE_BYTE, &client, &server);
+    CloseHandle(server);
+
+    id = 0;
+    ret = pGetNamedPipeClientSessionId(client, &id);
+    ok(ret, "got %u\n", GetLastError());
+    ok(id == current, "got %04x expected %04x\n", id, current);
+
+    id = 0;
+    ret = pGetNamedPipeServerSessionId(client, &id);
+    ok(ret, "got %u\n", GetLastError());
+    ok(id == current, "got %04x expected %04x\n", id, current);
+    CloseHandle(client);
+
+    /* different process */
+    memset(&overlapped, 0, sizeof(overlapped));
+    overlapped.hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+    server = create_overlapped_server( &overlapped );
+    ok(server != INVALID_HANDLE_VALUE, "got %u\n", GetLastError());
+
+    process = create_check_id_process("checksessionid", current);
+    winetest_wait_child_process(process);
+
+    CloseHandle(overlapped.hEvent);
+    CloseHandle(process);
+    CloseHandle(server);
+}
+
 START_TEST(pipe)
 {
     char **argv;
@@ -3294,15 +3603,37 @@ START_TEST(pipe)
     hmod = GetModuleHandleA("kernel32.dll");
     pQueueUserAPC = (void *) GetProcAddress(hmod, "QueueUserAPC");
     pCancelIoEx = (void *) GetProcAddress(hmod, "CancelIoEx");
+    pGetNamedPipeClientProcessId = (void *) GetProcAddress(hmod, "GetNamedPipeClientProcessId");
+    pGetNamedPipeServerProcessId = (void *) GetProcAddress(hmod, "GetNamedPipeServerProcessId");
+    pGetNamedPipeClientSessionId = (void *) GetProcAddress(hmod, "GetNamedPipeClientSessionId");
+    pGetNamedPipeServerSessionId = (void *) GetProcAddress(hmod, "GetNamedPipeServerSessionId");
 
     argc = winetest_get_mainargs(&argv);
 
-    if (argc > 3 && !strcmp(argv[2], "writepipe"))
+    if (argc > 3)
     {
-        UINT_PTR handle;
-        sscanf(argv[3], "%lx", &handle);
-        child_process_write_pipe((HANDLE)handle);
-        return;
+        if (!strcmp(argv[2], "writepipe"))
+        {
+            UINT_PTR handle;
+            sscanf(argv[3], "%lx", &handle);
+            child_process_write_pipe((HANDLE)handle);
+            return;
+        }
+        if (!strcmp(argv[2], "checkpid"))
+        {
+            DWORD pid = GetProcessId(GetCurrentProcess());
+            sscanf(argv[3], "%x", &pid);
+            child_process_check_pid(pid);
+            return;
+        }
+        if (!strcmp(argv[2], "checksessionid"))
+        {
+            DWORD id;
+            ProcessIdToSessionId(GetProcessId(GetCurrentProcess()), &id);
+            sscanf(argv[3], "%x", &id);
+            child_process_check_session_id(id);
+            return;
+        }
     }
 
     if (test_DisconnectNamedPipe())
@@ -3324,4 +3655,6 @@ START_TEST(pipe)
     test_overlapped_transport(TRUE, TRUE);
     test_overlapped_transport(FALSE, FALSE);
     test_TransactNamedPipe();
+    test_namedpipe_process_id();
+    test_namedpipe_session_id();
 }

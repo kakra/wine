@@ -75,18 +75,24 @@ struct WindowsMediaPlayer {
     /* DirectShow stuff */
     IGraphBuilder* filter_graph;
     IMediaControl* media_control;
+    IMediaEvent* media_event;
+
+    /* Async event notification */
+    HWND msg_window;
 };
 
-void init_player(WindowsMediaPlayer*) DECLSPEC_HIDDEN;
+BOOL init_player(WindowsMediaPlayer*) DECLSPEC_HIDDEN;
 void destroy_player(WindowsMediaPlayer*) DECLSPEC_HIDDEN;
 WMPMedia *unsafe_impl_from_IWMPMedia(IWMPMedia *iface) DECLSPEC_HIDDEN;
 HRESULT create_media_from_url(BSTR url, IWMPMedia **ppMedia) DECLSPEC_HIDDEN;
 void ConnectionPointContainer_Init(WindowsMediaPlayer *wmp) DECLSPEC_HIDDEN;
 void ConnectionPointContainer_Destroy(WindowsMediaPlayer *wmp) DECLSPEC_HIDDEN;
+void call_sink(ConnectionPoint *This, DISPID dispid, DISPPARAMS *dispparams) DECLSPEC_HIDDEN;
 
 HRESULT WINAPI WMPFactory_CreateInstance(IClassFactory*,IUnknown*,REFIID,void**) DECLSPEC_HIDDEN;
 
 void unregister_wmp_class(void) DECLSPEC_HIDDEN;
+void unregister_player_msg_class(void) DECLSPEC_HIDDEN;
 
 extern HINSTANCE wmp_instance DECLSPEC_HIDDEN;
 

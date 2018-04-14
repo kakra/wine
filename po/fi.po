@@ -2935,14 +2935,6 @@ msgstr "Huomio: Varmenteen yksityistä avainta ei voitu avata."
 msgid "Note: The private key for this certificate is not exportable."
 msgstr "Huomio: Tämän varmenteen yksityistä avainta ei voi viedä."
 
-#: devenum.rc:33
-msgid "Default WaveOut Device"
-msgstr "WaveOut-oletuslaite"
-
-#: devenum.rc:34
-msgid "Default MidiOut Device"
-msgstr "MidiOut-oletuslaite"
-
 #: dinput.rc:43
 msgid "Configure Devices"
 msgstr "Laitteiden asetukset"
@@ -9103,6 +9095,62 @@ msgid ""
 "There is at least one unspecified security problem with this certificate."
 msgstr ""
 "Tässä varmenteessa on ainakin yksi määrittelemätön turvallisuusongelma."
+
+#: winineterror.mc:26
+msgid "The request has timed out.\n"
+msgstr "Pyyntö on aikakatkaistu.\n"
+
+#: winineterror.mc:31
+msgid "An internal error has occurred.\n"
+msgstr "On tapahtunut sisäinen virhe.\n"
+
+#: winineterror.mc:36
+msgid "The URL is invalid.\n"
+msgstr "URL on viallinen.\n"
+
+#: winineterror.mc:41
+msgid "The URL scheme could not be recognized or is not supported.\n"
+msgstr "URL-skeemaa ei tunnistettu, tai sitä ei tueta.\n"
+
+#: winineterror.mc:46
+msgid "The server name could not be resolved.\n"
+msgstr "Palvelimen nimeä ei voitu jäsentää.\n"
+
+#: winineterror.mc:51
+msgid "The requested operation is invalid.\n"
+msgstr "Pyydetty toimenpide ei kelpaa.\n"
+
+#: winineterror.mc:56
+msgid ""
+"The operation was canceled, usually because the handle on which the request "
+"was operating was closed before the operation completed.\n"
+msgstr ""
+"Toimenpide keskeytettiin. Tämä johtuu yleensä siitä, että pyynnön "
+"käsittelemä kahva suljettiin ennen toimenpiteen valmistumista.\n"
+
+#: winineterror.mc:61
+msgid "The requested item could not be located.\n"
+msgstr "Pyydettyä kohdetta ei löytynyt.\n"
+
+#: winineterror.mc:66
+msgid "The attempt to connect to the server failed.\n"
+msgstr "Yritys yhdistää palvelimeen epäonnistui.\n"
+
+#: winineterror.mc:71
+msgid "The connection with the server has been terminated.\n"
+msgstr "Yhteys palvelimeen on katkaistu.\n"
+
+#: winineterror.mc:76
+msgid ""
+"SSL certificate date that was received from the server is bad. The "
+"certificate is expired.\n"
+msgstr ""
+"Palvelimen lähettämän SSL-sertifikaatin päiväys ei kelpaa. Sertifikaatti on "
+"vanhentunut.\n"
+
+#: winineterror.mc:81
+msgid "SSL certificate common name (host name field) is incorrect.\n"
+msgstr "SSL-sertifikaatin yleinen nimi (CN, palvelimen nimi) ei kelpaa.\n"
 
 #: winmm.rc:32
 msgid "The specified command was carried out."

@@ -1498,6 +1498,7 @@ HWND WIN_CreateWindowEx( CREATESTRUCTW *cs, LPCWSTR className, HINSTANCE module,
     wndPtr->hIconSmall     = 0;
     wndPtr->hIconSmall2    = 0;
     wndPtr->hSysMenu       = 0;
+    wndPtr->dpi_awareness  = GetThreadDpiAwarenessContext();
 
     wndPtr->min_pos.x = wndPtr->min_pos.y = -1;
     wndPtr->max_pos.x = wndPtr->max_pos.y = -1;
@@ -1748,7 +1749,7 @@ HWND WINAPI DECLSPEC_HOTPATCH CreateWindowExA( DWORD exStyle, LPCSTR className,
     if (!IS_INTRESOURCE(className))
     {
         WCHAR bufferW[256];
-        if (!MultiByteToWideChar( CP_ACP, 0, className, -1, bufferW, sizeof(bufferW)/sizeof(WCHAR) ))
+        if (!MultiByteToWideChar( CP_ACP, 0, className, -1, bufferW, ARRAY_SIZE( bufferW )))
             return 0;
         return wow_handlers.create_window( (CREATESTRUCTW *)&cs, bufferW, instance, FALSE );
     }
@@ -2024,7 +2025,7 @@ HWND WINAPI FindWindowExA( HWND parent, HWND child, LPCSTR className, LPCSTR tit
     if (!IS_INTRESOURCE(className))
     {
         WCHAR classW[256];
-        if (MultiByteToWideChar( CP_ACP, 0, className, -1, classW, sizeof(classW)/sizeof(WCHAR) ))
+        if (MultiByteToWideChar( CP_ACP, 0, className, -1, classW, ARRAY_SIZE( classW )))
             hwnd = FindWindowExW( parent, child, classW, titleW );
     }
     else
@@ -2212,6 +2213,32 @@ BOOL WINAPI IsWindowUnicode( HWND hwnd )
         SERVER_END_REQ;
     }
     return retvalue;
+}
+
+
+/***********************************************************************
+ *		GetWindowDpiAwarenessContext  (USER32.@)
+ */
+DPI_AWARENESS_CONTEXT WINAPI GetWindowDpiAwarenessContext( HWND hwnd )
+{
+    WND *win;
+    DPI_AWARENESS_CONTEXT ret;
+
+    if (!(win = WIN_GetPtr( hwnd )))
+    {
+        SetLastError( ERROR_INVALID_WINDOW_HANDLE );
+        return 0;
+    }
+    if (win == WND_DESKTOP) return DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE;
+    if (win == WND_OTHER_PROCESS)
+    {
+        if (IsWindow( hwnd )) FIXME( "not supported on other process window %p\n", hwnd );
+        else SetLastError( ERROR_INVALID_WINDOW_HANDLE );
+        return 0;
+    }
+    ret = win->dpi_awareness;
+    WIN_ReleasePtr( win );
+    return ret;
 }
 
 

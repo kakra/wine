@@ -600,6 +600,34 @@ NTSTATUS CDECL wine_ntoskrnl_main_loop( HANDLE stop_event )
 
 
 /***********************************************************************
+ *           ExAcquireFastMutexUnsafe  (NTOSKRNL.EXE.@)
+ */
+#ifdef DEFINE_FASTCALL1_ENTRYPOINT
+DEFINE_FASTCALL1_ENTRYPOINT(ExAcquireFastMutexUnsafe)
+void WINAPI __regs_ExAcquireFastMutexUnsafe(PFAST_MUTEX FastMutex)
+#else
+void WINAPI ExAcquireFastMutexUnsafe(PFAST_MUTEX FastMutex)
+#endif
+{
+    FIXME("(%p): stub\n", FastMutex);
+}
+
+
+/***********************************************************************
+ *           ExReleaseFastMutexUnsafe  (NTOSKRNL.EXE.@)
+ */
+#ifdef DEFINE_FASTCALL1_ENTRYPOINT
+DEFINE_FASTCALL1_ENTRYPOINT(ExReleaseFastMutexUnsafe)
+void WINAPI __regs_ExReleaseFastMutexUnsafe(PFAST_MUTEX FastMutex)
+#else
+void WINAPI ExReleaseFastMutexUnsafe(PFAST_MUTEX FastMutex)
+#endif
+{
+    FIXME("(%p): stub\n", FastMutex);
+}
+
+
+/***********************************************************************
  *           IoAcquireCancelSpinLock  (NTOSKRNL.EXE.@)
  */
 void WINAPI IoAcquireCancelSpinLock(PKIRQL irql)
@@ -2203,7 +2231,11 @@ NTSTATUS WINAPI ObReferenceObjectByHandle( HANDLE obj, ACCESS_MASK access,
                                            POBJECT_HANDLE_INFORMATION info)
 {
     FIXME( "stub: %p %x %p %d %p %p\n", obj, access, type, mode, ptr, info);
-    return STATUS_NOT_IMPLEMENTED;
+
+    if(ptr)
+        *ptr = UlongToHandle(0xdeadbeaf);
+
+    return STATUS_SUCCESS;
 }
 
  /***********************************************************************
@@ -2335,6 +2367,16 @@ USHORT WINAPI ObGetFilterVersion(void)
     FIXME( "stub:\n" );
 
     return OB_FLT_REGISTRATION_VERSION;
+}
+
+/***********************************************************************
+ *           ObGetObjectType (NTOSKRNL.EXE.@)
+ */
+POBJECT_TYPE WINAPI ObGetObjectType(void *object)
+{
+    FIXME("stub: %p\n", object);
+
+    return NULL;
 }
 
 /***********************************************************************
@@ -2662,7 +2704,7 @@ BOOLEAN WINAPI Ke386SetIoAccessMap(ULONG flag, PVOID buffer)
 PKEVENT WINAPI IoCreateSynchronizationEvent(PUNICODE_STRING name, PHANDLE handle)
 {
     FIXME("(%p %p) stub\n", name, handle);
-    return NULL;
+    return (KEVENT *)0xdeadbeaf;
 }
 
 /*****************************************************
@@ -3403,3 +3445,46 @@ __ASM_STDCALL_FUNC( _chkstk, 0,
 __ASM_GLOBAL_FUNC( __chkstk, "lsl r4, r4, #2\n\t"
                              "bx lr" )
 #endif
+
+/*********************************************************************
+ *           PsAcquireProcessExitSynchronization    (NTOSKRNL.@)
+*/
+NTSTATUS WINAPI PsAcquireProcessExitSynchronization(PEPROCESS process)
+{
+    FIXME("stub: %p\n", process);
+
+    return STATUS_NOT_IMPLEMENTED;
+}
+
+/*********************************************************************
+ *           PsReleaseProcessExitSynchronization    (NTOSKRNL.@)
+ */
+void WINAPI PsReleaseProcessExitSynchronization(PEPROCESS process)
+{
+    FIXME("stub: %p\n", process);
+}
+
+typedef struct _EX_PUSH_LOCK_WAIT_BLOCK *PEX_PUSH_LOCK_WAIT_BLOCK;
+/*********************************************************************
+ *           ExfUnblockPushLock    (NTOSKRNL.@)
+ */
+#ifdef DEFINE_FASTCALL2_ENTRYPOINT
+DEFINE_FASTCALL2_ENTRYPOINT( ExfUnblockPushLock )
+void WINAPI DECLSPEC_HIDDEN __regs_ExfUnblockPushLock( EX_PUSH_LOCK *lock,
+                                                       PEX_PUSH_LOCK_WAIT_BLOCK block)
+#else
+void WINAPI ExfUnblockPushLock( EX_PUSH_LOCK *lock, PEX_PUSH_LOCK_WAIT_BLOCK block )
+#endif
+{
+    FIXME( "stub: %p, %p\n", lock, block );
+}
+
+/*********************************************************************
+ *           PsGetProcessId    (NTOSKRNL.@)
+ */
+HANDLE WINAPI PsGetProcessId(PEPROCESS process)
+{
+    FIXME("stub: %p\n", process);
+
+    return 0;
+}

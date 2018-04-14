@@ -29,10 +29,6 @@
  *  - WM_NCCREATE: Turns any BS_OWNERDRAW button into a BS_PUSHBUTTON button.
  *  - WM_SYSKEYUP
  *  - BCM_GETIDEALSIZE
- *  - BCM_GETIMAGELIST
- *  - BCM_GETTEXTMARGIN
- *  - BCM_SETIMAGELIST
- *  - BCM_SETTEXTMARGIN
  *
  *  Notifications
  *  - BCN_HOTITEMCHANGE
@@ -45,13 +41,8 @@
  *  - NM_CUSTOMDRAW
  *
  *  Structures/Macros/Definitions
- *  - BUTTON_IMAGELIST
  *  - NMBCHOTITEM
  *  - Button_GetIdealSize
- *  - Button_GetImageList
- *  - Button_GetTextMargin
- *  - Button_SetImageList
- *  - Button_SetTextMargin
  */
 
 #include <stdarg.h>
@@ -89,12 +80,16 @@ WINE_DEFAULT_DEBUG_CHANNEL(button);
 
 typedef struct _BUTTON_INFO
 {
-    HWND        hwnd;
-    HWND        parent;
-    LONG        state;
-    HFONT       font;
-    WCHAR      *note;
-    INT         note_length;
+    HWND             hwnd;
+    HWND             parent;
+    LONG             style;
+    LONG             state;
+    HFONT            font;
+    WCHAR           *note;
+    INT              note_length;
+    DWORD            image_type; /* IMAGE_BITMAP or IMAGE_ICON */
+    BUTTON_IMAGELIST imagelist;
+    RECT             text_margin;
     union
     {
         HICON   icon;
@@ -340,11 +335,16 @@ static LRESULT CALLBACK BUTTON_WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, L
         break;
 
     case WM_NCCREATE:
+    {
+        CREATESTRUCTW *cs = (CREATESTRUCTW *)lParam;
+
         infoPtr = heap_alloc_zero( sizeof(*infoPtr) );
         SetWindowLongPtrW( hWnd, 0, (LONG_PTR)infoPtr );
         infoPtr->hwnd = hWnd;
-        infoPtr->parent = GetParent(hWnd);
+        infoPtr->parent = cs->hwndParent;
+        infoPtr->style = cs->style;
         return DefWindowProcW(hWnd, uMsg, wParam, lParam);
+    }
 
     case WM_NCDESTROY:
         SetWindowLongPtrW( hWnd, 0, 0 );
@@ -712,18 +712,7 @@ static LRESULT CALLBACK BUTTON_WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, L
 	break;
 
     case BM_SETIMAGE:
-        /* Check that image format matches button style */
-        switch (style & (BS_BITMAP|BS_ICON))
-        {
-        case BS_BITMAP:
-            if (wParam != IMAGE_BITMAP) return 0;
-            break;
-        case BS_ICON:
-            if (wParam != IMAGE_ICON) return 0;
-            break;
-        default:
-            return 0;
-        }
+        infoPtr->image_type = (DWORD)wParam;
         oldHbitmap = infoPtr->u.image;
         infoPtr->u.image = (HANDLE)lParam;
 	InvalidateRect( hWnd, NULL, FALSE );
@@ -731,6 +720,26 @@ static LRESULT CALLBACK BUTTON_WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, L
 
     case BM_GETIMAGE:
         return (LRESULT)infoPtr->u.image;
+
+    case BCM_SETIMAGELIST:
+    {
+        BUTTON_IMAGELIST *imagelist = (BUTTON_IMAGELIST *)lParam;
+
+        if (!imagelist) return FALSE;
+
+        infoPtr->imagelist = *imagelist;
+        return TRUE;
+    }
+
+    case BCM_GETIMAGELIST:
+    {
+        BUTTON_IMAGELIST *imagelist = (BUTTON_IMAGELIST *)lParam;
+
+        if (!imagelist) return FALSE;
+
+        *imagelist = infoPtr->imagelist;
+        return TRUE;
+    }
 
     case BM_GETCHECK:
         return infoPtr->state & 3;
@@ -773,6 +782,26 @@ static LRESULT CALLBACK BUTTON_WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, L
         }
         break;
 
+    case BCM_SETTEXTMARGIN:
+    {
+        RECT *text_margin = (RECT *)lParam;
+
+        if (!text_margin) return FALSE;
+
+        infoPtr->text_margin = *text_margin;
+        return TRUE;
+    }
+
+    case BCM_GETTEXTMARGIN:
+    {
+        RECT *text_margin = (RECT *)lParam;
+
+        if (!text_margin) return FALSE;
+
+        *text_margin = infoPtr->text_margin;
+        return TRUE;
+    }
+
     case WM_NCHITTEST:
         if(btn_type == BS_GROUPBOX) return HTTRANSPARENT;
         /* fall through */
@@ -796,61 +825,50 @@ static UINT BUTTON_CalcLabelRect(const BUTTON_INFO *infoPtr, HDC hdc, RECT *rc)
 {
    LONG style = GetWindowLongW( infoPtr->hwnd, GWL_STYLE );
    LONG ex_style = GetWindowLongW( infoPtr->hwnd, GWL_EXSTYLE );
-   WCHAR *text;
+   WCHAR *text = get_button_text(infoPtr);
    ICONINFO    iconInfo;
-   BITMAP      bm;
+   BITMAP      bm = { 0 };
    UINT        dtStyle = BUTTON_BStoDT( style, ex_style );
    RECT        r = *rc;
    INT         n;
 
    /* Calculate label rectangle according to label type */
-   switch (style & (BS_ICON|BS_BITMAP))
+   /* FIXME: Doesn't support showing both image and text yet */
+   if (infoPtr->u.image)
    {
-      case BS_TEXT:
-      {
-          HFONT hFont, hPrevFont = 0;
+       if (infoPtr->image_type == IMAGE_ICON)
+       {
+           GetIconInfo(infoPtr->u.icon, &iconInfo);
+           GetObjectW(iconInfo.hbmColor, sizeof(bm), &bm);
+           DeleteObject(iconInfo.hbmColor);
+           DeleteObject(iconInfo.hbmMask);
+       }
+       else if (infoPtr->image_type == IMAGE_BITMAP)
+       {
+           GetObjectW(infoPtr->u.bitmap, sizeof(bm), &bm);
+       }
 
-          if (!(text = get_button_text( infoPtr ))) goto empty_rect;
-          if (!text[0])
-          {
-              heap_free( text );
-              goto empty_rect;
-          }
-
-          if ((hFont = infoPtr->font)) hPrevFont = SelectObject( hdc, hFont );
-          DrawTextW(hdc, text, -1, &r, dtStyle | DT_CALCRECT);
-          if (hPrevFont) SelectObject( hdc, hPrevFont );
-          heap_free( text );
-          break;
-      }
-
-      case BS_ICON:
-         if (!GetIconInfo(infoPtr->u.icon, &iconInfo))
-            goto empty_rect;
-
-         GetObjectW (iconInfo.hbmColor, sizeof(BITMAP), &bm);
-
-         r.right  = r.left + bm.bmWidth;
-         r.bottom = r.top  + bm.bmHeight;
-
-         DeleteObject(iconInfo.hbmColor);
-         DeleteObject(iconInfo.hbmMask);
-         break;
-
-      case BS_BITMAP:
-         if (!GetObjectW( infoPtr->u.bitmap, sizeof(BITMAP), &bm))
-            goto empty_rect;
-
-         r.right  = r.left + bm.bmWidth;
-         r.bottom = r.top  + bm.bmHeight;
-         break;
-
-      default:
-      empty_rect:
-         rc->right = r.left;
-         rc->bottom = r.top;
-         return (UINT)-1;
+       r.right = r.left + bm.bmWidth;
+       r.bottom = r.top + bm.bmHeight;
    }
+   else if (text && text[0])
+   {
+       HFONT hFont, hPrevFont = 0;
+
+       if ((hFont = infoPtr->font)) hPrevFont = SelectObject(hdc, hFont);
+       DrawTextW(hdc, text, -1, &r, dtStyle | DT_CALCRECT);
+       if (hPrevFont) SelectObject(hdc, hPrevFont);
+   }
+
+   if ((infoPtr->u.image && bm.bmWidth == 0 && bm.bmHeight == 0)
+       || (text == NULL || text[0] == '\0'))
+   {
+       rc->right = r.left;
+       rc->bottom = r.top;
+       heap_free(text);
+       return (UINT)-1;
+   }
+   heap_free(text);
 
    /* Position label inside bounding rectangle according to
     * alignment flags. (calculated rect is always left-top aligned).
@@ -928,28 +946,30 @@ static void BUTTON_DrawLabel(const BUTTON_INFO *infoPtr, HDC hdc, UINT dtFlags, 
       flags |= DSS_MONO;
    }
 
-   switch (style & (BS_ICON|BS_BITMAP))
+   /* FIXME: Support drawing label with both image and text */
+   if (infoPtr->u.image != 0)
    {
-      case BS_TEXT:
-         /* DST_COMPLEX -- is 0 */
-         lpOutputProc = BUTTON_DrawTextCallback;
-         if (!(text = get_button_text( infoPtr ))) return;
-         lp = (LPARAM)text;
-         wp = dtFlags;
-         break;
-
-      case BS_ICON:
-         flags |= DST_ICON;
-         lp = (LPARAM)infoPtr->u.icon;
-         break;
-
-      case BS_BITMAP:
-         flags |= DST_BITMAP;
-         lp = (LPARAM)infoPtr->u.bitmap;
-         break;
-
-      default:
-         return;
+       switch (infoPtr->image_type)
+       {
+       case IMAGE_ICON:
+           flags |= DST_ICON;
+           lp = (LPARAM)infoPtr->u.icon;
+           break;
+       case IMAGE_BITMAP:
+           flags |= DST_BITMAP;
+           lp = (LPARAM)infoPtr->u.bitmap;
+           break;
+       default:
+           return;
+       }
+   }
+   else
+   {
+       /* DST_COMPLEX -- is 0 */
+       lpOutputProc = BUTTON_DrawTextCallback;
+       if (!(text = get_button_text(infoPtr))) return;
+       lp = (LPARAM)text;
+       wp = dtFlags;
    }
 
    DrawStateW(hdc, hbr, lpOutputProc, lp, wp, rc->left, rc->top,

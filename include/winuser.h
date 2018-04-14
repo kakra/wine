@@ -3747,6 +3747,7 @@ WINUSERAPI HWND        WINAPI GetParent(HWND);
 WINUSERAPI BOOL        WINAPI GetPhysicalCursorPos(POINT*);
 WINUSERAPI INT         WINAPI GetPriorityClipboardFormat(UINT*,INT);
 WINUSERAPI BOOL        WINAPI GetProcessDefaultLayout(DWORD*);
+WINUSERAPI BOOL        WINAPI GetProcessDpiAwarenessInternal(HANDLE,DPI_AWARENESS*);
 WINUSERAPI HANDLE      WINAPI GetPropA(HWND,LPCSTR);
 WINUSERAPI HANDLE      WINAPI GetPropW(HWND,LPCWSTR);
 #define                       GetProp WINELIB_NAME_AW(GetProp)
@@ -3761,11 +3762,13 @@ WINUSERAPI HBRUSH      WINAPI GetSysColorBrush(INT);
 #define                       GetSysModalWindow() ((HWND)0)
 WINUSERAPI HMENU       WINAPI GetSystemMenu(HWND,BOOL);
 WINUSERAPI INT         WINAPI GetSystemMetrics(INT);
+WINUSERAPI INT         WINAPI GetSystemMetricsForDpi(INT,UINT);
 WINUSERAPI DWORD       WINAPI GetTabbedTextExtentA(HDC,LPCSTR,INT,INT,const INT*);
 WINUSERAPI DWORD       WINAPI GetTabbedTextExtentW(HDC,LPCWSTR,INT,INT,const INT*);
 #define                       GetTabbedTextExtent WINELIB_NAME_AW(GetTabbedTextExtent)
 WINUSERAPI BOOL        WINAPI GetTitleBarInfo(HWND,PTITLEBARINFO);
 WINUSERAPI HDESK       WINAPI GetThreadDesktop(DWORD);
+WINUSERAPI DPI_AWARENESS_CONTEXT WINAPI GetThreadDpiAwarenessContext(void);
 WINUSERAPI HWND        WINAPI GetTopWindow(HWND);
 WINUSERAPI BOOL        WINAPI GetTouchInputInfo(HTOUCHINPUT,UINT,TOUCHINPUT*,int);
 WINUSERAPI BOOL        WINAPI GetUpdateRect(HWND,LPRECT,BOOL);
@@ -3779,6 +3782,7 @@ WINUSERAPI HWND        WINAPI GetWindow(HWND,UINT);
 WINUSERAPI DWORD       WINAPI GetWindowContextHelpId(HWND);
 WINUSERAPI HDC         WINAPI GetWindowDC(HWND);
 WINUSERAPI BOOL        WINAPI GetWindowDisplayAffinity(HWND,DWORD*);
+WINUSERAPI DPI_AWARENESS_CONTEXT WINAPI GetWindowDpiAwarenessContext(HWND);
 WINUSERAPI BOOL        WINAPI GetWindowInfo(HWND, PWINDOWINFO);
 WINUSERAPI LONG        WINAPI GetWindowLongA(HWND,INT);
 WINUSERAPI LONG        WINAPI GetWindowLongW(HWND,INT);
@@ -4065,6 +4069,7 @@ WINUSERAPI BOOL        WINAPI SetPhysicalCursorPos(INT,INT);
 WINUSERAPI BOOL        WINAPI SetProcessDPIAware(void);
 WINUSERAPI BOOL        WINAPI SetProcessDefaultLayout(DWORD);
 WINUSERAPI BOOL        WINAPI SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT);
+WINUSERAPI BOOL        WINAPI SetProcessDpiAwarenessInternal(DPI_AWARENESS);
 WINUSERAPI BOOL        WINAPI SetProcessWindowStation(HWINSTA);
 WINUSERAPI BOOL        WINAPI SetPropA(HWND,LPCSTR,HANDLE);
 WINUSERAPI BOOL        WINAPI SetPropW(HWND,LPCWSTR,HANDLE);
@@ -4125,6 +4130,7 @@ WINUSERAPI VOID        WINAPI SwitchToThisWindow(HWND,BOOL);
 WINUSERAPI BOOL        WINAPI SystemParametersInfoA(UINT,UINT,LPVOID,UINT);
 WINUSERAPI BOOL        WINAPI SystemParametersInfoW(UINT,UINT,LPVOID,UINT);
 #define                       SystemParametersInfo WINELIB_NAME_AW(SystemParametersInfo)
+WINUSERAPI BOOL        WINAPI SystemParametersInfoForDpi(UINT,UINT,void*,UINT,UINT);
 WINUSERAPI LONG        WINAPI TabbedTextOutA(HDC,INT,INT,LPCSTR,INT,INT,const INT*,INT);
 WINUSERAPI LONG        WINAPI TabbedTextOutW(HDC,INT,INT,LPCWSTR,INT,INT,const INT*,INT);
 #define                       TabbedTextOut WINELIB_NAME_AW(TabbedTextOut)

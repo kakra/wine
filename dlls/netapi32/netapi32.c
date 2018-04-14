@@ -39,7 +39,7 @@
 #include "winbase.h"
 #include "lm.h"
 #include "lmaccess.h"
-#include "lmat.h"
+#include "atsvc.h"
 #include "lmapibuf.h"
 #include "lmbrowsr.h"
 #include "lmshare.h"
@@ -1141,23 +1141,39 @@ NET_API_STATUS WINAPI NetUseEnum(LMSTR server, DWORD level, LPBYTE* bufptr, DWOR
 
 NET_API_STATUS WINAPI NetScheduleJobAdd(LPCWSTR server, LPBYTE bufptr, LPDWORD jobid)
 {
-    FIXME("stub (%s, %p, %p)\n", debugstr_w(server), bufptr, jobid);
-    return NERR_Success;
+    TRACE("(%s, %p, %p)\n", debugstr_w(server), bufptr, jobid);
+    return NetrJobAdd(server, (AT_INFO *)bufptr, jobid);
 }
 
 NET_API_STATUS WINAPI NetScheduleJobDel(LPCWSTR server, DWORD minjobid, DWORD maxjobid)
 {
-    FIXME("stub (%s, %d, %d)\n", debugstr_w(server), minjobid, maxjobid);
-    return NERR_Success;
+    TRACE("(%s, %u, %u)\n", debugstr_w(server), minjobid, maxjobid);
+    return NetrJobDel(server, minjobid, maxjobid);
 }
 
 NET_API_STATUS WINAPI NetScheduleJobEnum(LPCWSTR server, LPBYTE* bufptr, DWORD prefmaxsize, LPDWORD entriesread,
                                          LPDWORD totalentries, LPDWORD resumehandle)
 {
-    FIXME("stub (%s, %p, %d, %p, %p, %p)\n", debugstr_w(server), bufptr, prefmaxsize, entriesread, totalentries, resumehandle);
-    *entriesread = 0;
-    *totalentries = 0;
-    return NERR_Success;
+    AT_ENUM_CONTAINER container;
+    NET_API_STATUS ret;
+
+    TRACE("(%s, %p, %u, %p, %p, %p)\n", debugstr_w(server), bufptr, prefmaxsize, entriesread, totalentries, resumehandle);
+
+    container.EntriesRead = 0;
+    container.Buffer = NULL;
+    ret = NetrJobEnum(server, &container, prefmaxsize, totalentries, resumehandle);
+    if (ret == ERROR_SUCCESS)
+    {
+        *bufptr = (LPBYTE)container.Buffer;
+        *entriesread = container.EntriesRead;
+    }
+    return ret;
+}
+
+NET_API_STATUS WINAPI NetScheduleJobGetInfo(LPCWSTR server, DWORD jobid, LPBYTE *bufptr)
+{
+    TRACE("(%s, %u, %p)\n", debugstr_w(server), jobid, bufptr);
+    return NetrJobGetInfo(server, jobid, (LPAT_INFO *)bufptr);
 }
 
 NET_API_STATUS WINAPI NetUseGetInfo(LMSTR server, LMSTR name, DWORD level, LPBYTE *bufptr)
@@ -1188,7 +1204,7 @@ NET_API_STATUS WINAPI NetApiBufferAllocate(DWORD ByteCount, LPVOID* Buffer)
 NET_API_STATUS WINAPI NetApiBufferFree(LPVOID Buffer)
 {
     TRACE("(%p)\n", Buffer);
-    HeapFree(GetProcessHeap(), 0, Buffer);
+    MIDL_user_free(Buffer);
     return NERR_Success;
 }
 
@@ -3526,4 +3542,33 @@ DWORD WINAPI DavGetUNCFromHTTPPath(const WCHAR *http_path, WCHAR *buf, DWORD *bu
     *buflen = len;
 
     return ERROR_SUCCESS;
+}
+
+DECLSPEC_HIDDEN void __RPC_FAR *__RPC_USER MIDL_user_allocate(SIZE_T n)
+{
+    return HeapAlloc(GetProcessHeap(), 0, n);
+}
+
+DECLSPEC_HIDDEN void __RPC_USER MIDL_user_free(void __RPC_FAR *p)
+{
+    HeapFree(GetProcessHeap(), 0, p);
+}
+
+DECLSPEC_HIDDEN handle_t __RPC_USER ATSVC_HANDLE_bind(ATSVC_HANDLE str)
+{
+    static unsigned char ncalrpc[] = "ncalrpc";
+    unsigned char *binding_str;
+    handle_t rpc_handle = 0;
+
+    if (RpcStringBindingComposeA(NULL, ncalrpc, NULL, NULL, NULL, &binding_str) == RPC_S_OK)
+    {
+        RpcBindingFromStringBindingA(binding_str, &rpc_handle);
+        RpcStringFreeA(&binding_str);
+    }
+    return rpc_handle;
+}
+
+DECLSPEC_HIDDEN void __RPC_USER ATSVC_HANDLE_unbind(ATSVC_HANDLE ServerName, handle_t rpc_handle)
+{
+    RpcBindingFree(&rpc_handle);
 }

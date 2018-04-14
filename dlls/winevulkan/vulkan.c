@@ -23,10 +23,6 @@
 #include "winbase.h"
 #include "winuser.h"
 
-#include "wine/debug.h"
-#include "wine/heap.h"
-#include "wine/vulkan.h"
-#include "wine/vulkan_driver.h"
 #include "vulkan_private.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(vulkan);
@@ -140,7 +136,7 @@ err:
     return NULL;
 }
 
-/* Helper function for release command buffers. */
+/* Helper function to release command buffers. */
 static void wine_vk_command_buffers_free(struct VkDevice_T *device, VkCommandPool pool,
         uint32_t count, const VkCommandBuffer *buffers)
 {
@@ -536,8 +532,6 @@ VkResult WINAPI wine_vkCreateDevice(VkPhysicalDevice phys_dev,
         return res;
     }
 
-    object->phys_dev = phys_dev;
-
     /* Just load all function pointers we are aware off. The loader takes care of filtering.
      * We use vkGetDeviceProcAddr as opposed to vkGetInstanceProcAddr for efficiency reasons
      * as functions pass through fewer dispatch tables within the loader.
@@ -805,7 +799,7 @@ PFN_vkVoidFunction WINAPI wine_vkGetDeviceProcAddr(VkDevice device, const char *
     /* Per the spec, we are only supposed to return device functions as in functions
      * for which the first parameter is vkDevice or a child of vkDevice like a
      * vkCommandBuffer or vkQueue.
-     * Loader takes are of filtering of extensions which are enabled or not.
+     * Loader takes care of filtering of extensions which are enabled or not.
      */
     func = wine_vk_get_device_proc_addr(name);
     if (func)

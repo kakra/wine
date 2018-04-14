@@ -33,6 +33,7 @@
 
 /* We only want host compatible structures and don't need alignment. */
 #define WINE_VK_ALIGN(x)
+#define VK_NO_PROTOTYPES
 
 #include "wine/vulkan.h"
 #include "wine/vulkan_driver.h"
@@ -335,7 +336,7 @@ static VkResult X11DRV_vkEnumerateInstanceExtensionProperties(const char *layer_
     unsigned int i;
     VkResult res;
 
-    TRACE("layer_name %p, count %p, properties %p\n", debugstr_a(layer_name), count, properties);
+    TRACE("layer_name %s, count %p, properties %p\n", debugstr_a(layer_name), count, properties);
 
     /* This shouldn't get called with layer_name set, the ICD loader prevents it. */
     if (layer_name)
@@ -360,8 +361,9 @@ static VkResult X11DRV_vkEnumerateInstanceExtensionProperties(const char *layer_
         {
             TRACE("Substituting VK_KHR_xlib_surface for VK_KHR_win32_surface\n");
 
-            snprintf(properties[i].extensionName, sizeof(properties[i].extensionName), "VK_KHR_win32_surface");
-            properties[i].specVersion = 6; /* Revision as of 4/24/2017 */
+            snprintf(properties[i].extensionName, sizeof(properties[i].extensionName),
+                    VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+            properties[i].specVersion = VK_KHR_WIN32_SURFACE_SPEC_VERSION;
         }
     }
 

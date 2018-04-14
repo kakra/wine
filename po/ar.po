@@ -2932,14 +2932,6 @@ msgstr "ملاحظة : لا يمكن فتح المفتاح الخاص لهذه �
 msgid "Note: The private key for this certificate is not exportable."
 msgstr "ملاحظة : لا يمكن تصدير المفتاح الخاص لهذه الشهادة."
 
-#: devenum.rc:33
-msgid "Default WaveOut Device"
-msgstr "الجهاز الافتراضي لإخراج الموجات"
-
-#: devenum.rc:34
-msgid "Default MidiOut Device"
-msgstr "الجهاز الافتراضي لإخراج النوطات"
-
 #: dinput.rc:43
 msgid "Configure Devices"
 msgstr "إعداد الأجهزة"
@@ -9241,6 +9233,72 @@ msgstr "لا يتطابق اسم الشهادة مع الموقع."
 msgid ""
 "There is at least one unspecified security problem with this certificate."
 msgstr "هناك على الأقل مشكلة أمنية واحدة غير محددة في الشهادة."
+
+#: winineterror.mc:26
+#, fuzzy
+#| msgid "Service request timeout.\n"
+msgid "The request has timed out.\n"
+msgstr "انتهى زمن طلب الخدمة.\n"
+
+#: winineterror.mc:31
+#, fuzzy
+#| msgid "A printer error occurred."
+msgid "An internal error has occurred.\n"
+msgstr "خطأ في الطابعة."
+
+#: winineterror.mc:36
+#, fuzzy
+#| msgid "Path is invalid.\n"
+msgid "The URL is invalid.\n"
+msgstr "المسار غير سليم.\n"
+
+#: winineterror.mc:41
+msgid "The URL scheme could not be recognized or is not supported.\n"
+msgstr ""
+
+#: winineterror.mc:46
+#, fuzzy
+#| msgid "The username could not be found.\n"
+msgid "The server name could not be resolved.\n"
+msgstr "لم يتمكن من إيجاد اسم المستخدم.\n"
+
+#: winineterror.mc:51
+#, fuzzy
+#| msgid "The user profile is invalid.\n"
+msgid "The requested operation is invalid.\n"
+msgstr "ملف المستخدم الشخصي غير سليم.\n"
+
+#: winineterror.mc:56
+msgid ""
+"The operation was canceled, usually because the handle on which the request "
+"was operating was closed before the operation completed.\n"
+msgstr ""
+
+#: winineterror.mc:61
+#, fuzzy
+#| msgid "The profile could not be added.\n"
+msgid "The requested item could not be located.\n"
+msgstr "لم يتمكن من إضافة الملف الشخصي.\n"
+
+#: winineterror.mc:66
+#, fuzzy
+#| msgid "Can't connect to the LDAP server"
+msgid "The attempt to connect to the server failed.\n"
+msgstr "لم يتمكن من الاتصال بخادوم LDAP"
+
+#: winineterror.mc:71
+msgid "The connection with the server has been terminated.\n"
+msgstr ""
+
+#: winineterror.mc:76
+msgid ""
+"SSL certificate date that was received from the server is bad. The "
+"certificate is expired.\n"
+msgstr ""
+
+#: winineterror.mc:81
+msgid "SSL certificate common name (host name field) is incorrect.\n"
+msgstr ""
 
 #: winmm.rc:32
 msgid "The specified command was carried out."

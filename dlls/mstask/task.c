@@ -248,58 +248,113 @@ static HRESULT WINAPI MSTASK_ITask_GetExitCode(
 static HRESULT WINAPI MSTASK_ITask_SetComment(ITask *iface, LPCWSTR comment)
 {
     TaskImpl *This = impl_from_ITask(iface);
+    IRegistrationInfo *info;
+    HRESULT hr;
 
     TRACE("(%p, %s)\n", iface, debugstr_w(comment));
 
     if (!comment || !comment[0])
         comment = NULL;
 
-    return IExecAction_put_Id(This->action, (BSTR)comment);
+    hr = ITaskDefinition_get_RegistrationInfo(This->task, &info);
+    if (hr == S_OK)
+    {
+        hr = IRegistrationInfo_put_Description(info, (BSTR)comment);
+        IRegistrationInfo_Release(info);
+    }
+    return hr;
 }
 
 static HRESULT WINAPI MSTASK_ITask_GetComment(ITask *iface, LPWSTR *comment)
 {
     TaskImpl *This = impl_from_ITask(iface);
+    IRegistrationInfo *info;
     HRESULT hr;
-    BSTR id;
+    BSTR description;
     DWORD len;
 
     TRACE("(%p, %p)\n", iface, comment);
 
-    hr = IExecAction_get_Id(This->action, &id);
+    hr = ITaskDefinition_get_RegistrationInfo(This->task, &info);
     if (hr != S_OK) return hr;
 
-    len = id ? lstrlenW(id) + 1 : 1;
-    *comment = CoTaskMemAlloc(len * sizeof(WCHAR));
-    if (*comment)
+    hr = IRegistrationInfo_get_Description(info, &description);
+    if (hr == S_OK)
     {
-        if (!id)
-            *comment[0] = 0;
+        len = description ? lstrlenW(description) + 1 : 1;
+        *comment = CoTaskMemAlloc(len * sizeof(WCHAR));
+        if (*comment)
+        {
+            if (!description)
+                *comment[0] = 0;
+            else
+                lstrcpyW(*comment, description);
+            hr = S_OK;
+        }
         else
-            lstrcpyW(*comment, id);
-        hr = S_OK;
-    }
-    else
-        hr =  E_OUTOFMEMORY;
+            hr =  E_OUTOFMEMORY;
 
-    SysFreeString(id);
+        SysFreeString(description);
+    }
+
+    IRegistrationInfo_Release(info);
     return hr;
 }
 
-static HRESULT WINAPI MSTASK_ITask_SetCreator(
-        ITask* iface,
-        LPCWSTR pwszCreator)
+static HRESULT WINAPI MSTASK_ITask_SetCreator(ITask *iface, LPCWSTR creator)
 {
-    FIXME("(%p, %p): stub\n", iface, pwszCreator);
-    return E_NOTIMPL;
+    TaskImpl *This = impl_from_ITask(iface);
+    IRegistrationInfo *info;
+    HRESULT hr;
+
+    TRACE("(%p, %s)\n", iface, debugstr_w(creator));
+
+    if (!creator || !creator[0])
+        creator = NULL;
+
+    hr = ITaskDefinition_get_RegistrationInfo(This->task, &info);
+    if (hr == S_OK)
+    {
+        hr = IRegistrationInfo_put_Author(info, (BSTR)creator);
+        IRegistrationInfo_Release(info);
+    }
+    return hr;
 }
 
-static HRESULT WINAPI MSTASK_ITask_GetCreator(
-        ITask* iface,
-        LPWSTR *ppwszCreator)
+static HRESULT WINAPI MSTASK_ITask_GetCreator(ITask *iface, LPWSTR *creator)
 {
-    FIXME("(%p, %p): stub\n", iface, ppwszCreator);
-    return E_NOTIMPL;
+    TaskImpl *This = impl_from_ITask(iface);
+    IRegistrationInfo *info;
+    HRESULT hr;
+    BSTR author;
+    DWORD len;
+
+    TRACE("(%p, %p)\n", iface, creator);
+
+    hr = ITaskDefinition_get_RegistrationInfo(This->task, &info);
+    if (hr != S_OK) return hr;
+
+    hr = IRegistrationInfo_get_Author(info, &author);
+    if (hr == S_OK)
+    {
+        len = author ? lstrlenW(author) + 1 : 1;
+        *creator = CoTaskMemAlloc(len * sizeof(WCHAR));
+        if (*creator)
+        {
+            if (!author)
+                *creator[0] = 0;
+            else
+                lstrcpyW(*creator, author);
+            hr = S_OK;
+        }
+        else
+            hr =  E_OUTOFMEMORY;
+
+        SysFreeString(author);
+    }
+
+    IRegistrationInfo_Release(info);
+    return hr;
 }
 
 static HRESULT WINAPI MSTASK_ITask_SetWorkItemData(

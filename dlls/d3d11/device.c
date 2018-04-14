@@ -2764,9 +2764,18 @@ static HRESULT STDMETHODCALLTYPE d3d11_device_CreateBuffer(ID3D11Device *iface, 
 static HRESULT STDMETHODCALLTYPE d3d11_device_CreateTexture1D(ID3D11Device *iface,
         const D3D11_TEXTURE1D_DESC *desc, const D3D11_SUBRESOURCE_DATA *data, ID3D11Texture1D **texture)
 {
-    FIXME("iface %p, desc %p, data %p, texture %p stub!\n", iface, desc, data, texture);
+    struct d3d_device *device = impl_from_ID3D11Device(iface);
+    struct d3d_texture1d *object;
+    HRESULT hr;
 
-    return E_NOTIMPL;
+    TRACE("iface %p, desc %p, data %p, texture %p.\n", iface, desc, data, texture);
+
+    if (FAILED(hr = d3d_texture1d_create(device, desc, data, &object)))
+        return hr;
+
+    *texture = &object->ID3D11Texture1D_iface;
+
+    return S_OK;
 }
 
 static HRESULT STDMETHODCALLTYPE d3d11_device_CreateTexture2D(ID3D11Device *iface,
@@ -3384,6 +3393,50 @@ static HRESULT STDMETHODCALLTYPE d3d11_device_CheckFeatureSupport(ID3D11Device *
             }
 
             options->ComputeShaders_Plus_RawAndStructuredBuffers_Via_Shader_4_x = FALSE;
+            return S_OK;
+        }
+
+        case D3D11_FEATURE_D3D11_OPTIONS:
+        {
+            D3D11_FEATURE_DATA_D3D11_OPTIONS *options = feature_support_data;
+            if (feature_support_data_size != sizeof(*options))
+            {
+                WARN("Invalid data size.\n");
+                return E_INVALIDARG;
+            }
+
+            FIXME("Returning fake Options support data.\n");
+            options->OutputMergerLogicOp = FALSE;
+            options->UAVOnlyRenderingForcedSampleCount = FALSE;
+            options->DiscardAPIsSeenByDriver = FALSE;
+            options->FlagsForUpdateAndCopySeenByDriver = FALSE;
+            options->ClearView = FALSE;
+            options->CopyWithOverlap = FALSE;
+            options->ConstantBufferPartialUpdate = FALSE;
+            options->ConstantBufferOffsetting = FALSE;
+            options->MapNoOverwriteOnDynamicConstantBuffer = FALSE;
+            options->MapNoOverwriteOnDynamicBufferSRV = FALSE;
+            options->MultisampleRTVWithForcedSampleCountOne = FALSE;
+            options->SAD4ShaderInstructions = FALSE;
+            options->ExtendedDoublesShaderInstructions = FALSE;
+            options->ExtendedResourceSharing = FALSE;
+            return S_OK;
+        }
+
+        case D3D11_FEATURE_D3D11_OPTIONS1:
+        {
+            D3D11_FEATURE_DATA_D3D11_OPTIONS1 *options = feature_support_data;
+            if (feature_support_data_size != sizeof(*options))
+            {
+                WARN("Invalid data size.\n");
+                return E_INVALIDARG;
+            }
+
+            FIXME("Returning fake Options1 support data.\n");
+            options->TiledResourcesTier = D3D11_TILED_RESOURCES_NOT_SUPPORTED;
+            options->MinMaxFiltering = FALSE;
+            options->ClearViewAlsoSupportsDepthOnlyFormats = FALSE;
+            options->MapOnDefaultBuffers = FALSE;
             return S_OK;
         }
 
@@ -4986,9 +5039,28 @@ static HRESULT STDMETHODCALLTYPE d3d10_device_CreateBuffer(ID3D10Device1 *iface,
 static HRESULT STDMETHODCALLTYPE d3d10_device_CreateTexture1D(ID3D10Device1 *iface,
         const D3D10_TEXTURE1D_DESC *desc, const D3D10_SUBRESOURCE_DATA *data, ID3D10Texture1D **texture)
 {
-    FIXME("iface %p, desc %p, data %p, texture %p stub!\n", iface, desc, data, texture);
+    struct d3d_device *device = impl_from_ID3D10Device(iface);
+    D3D11_TEXTURE1D_DESC d3d11_desc;
+    struct d3d_texture1d *object;
+    HRESULT hr;
 
-    return E_NOTIMPL;
+    TRACE("iface %p, desc %p, data %p, texture %p.\n", iface, desc, data, texture);
+
+    d3d11_desc.Width = desc->Width;
+    d3d11_desc.MipLevels = desc->MipLevels;
+    d3d11_desc.ArraySize = desc->ArraySize;
+    d3d11_desc.Format = desc->Format;
+    d3d11_desc.Usage = d3d11_usage_from_d3d10_usage(desc->Usage);
+    d3d11_desc.BindFlags = d3d11_bind_flags_from_d3d10_bind_flags(desc->BindFlags);
+    d3d11_desc.CPUAccessFlags = d3d11_cpu_access_flags_from_d3d10_cpu_access_flags(desc->CPUAccessFlags);
+    d3d11_desc.MiscFlags = d3d11_resource_misc_flags_from_d3d10_resource_misc_flags(desc->MiscFlags);
+
+    if (FAILED(hr = d3d_texture1d_create(device, &d3d11_desc, (const D3D11_SUBRESOURCE_DATA *)data, &object)))
+        return hr;
+
+    *texture = &object->ID3D10Texture1D_iface;
+
+    return S_OK;
 }
 
 static HRESULT STDMETHODCALLTYPE d3d10_device_CreateTexture2D(ID3D10Device1 *iface,

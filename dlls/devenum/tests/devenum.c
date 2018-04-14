@@ -30,6 +30,8 @@
 #include "vfwmsgs.h"
 #include "mmsystem.h"
 #include "dsound.h"
+#include "mmddk.h"
+#include "vfw.h"
 
 DEFINE_GUID(GUID_NULL,0,0,0,0,0,0,0,0,0,0,0);
 
@@ -37,10 +39,24 @@ static const WCHAR friendly_name[] = {'F','r','i','e','n','d','l','y','N','a','m
 static const WCHAR fcc_handlerW[] = {'F','c','c','H','a','n','d','l','e','r',0};
 static const WCHAR deviceW[] = {'@','d','e','v','i','c','e',':',0};
 static const WCHAR clsidW[] = {'C','L','S','I','D',0};
+static const WCHAR waveW[] = {'w','a','v','e',':',0};
 static const WCHAR mrleW[] = {'m','r','l','e',0};
 static const WCHAR swW[] = {'s','w',':',0};
 static const WCHAR cmW[] = {'c','m',':',0};
 static const WCHAR backslashW[] = {'\\',0};
+
+static inline WCHAR *strchrW( const WCHAR *str, WCHAR ch )
+{
+    do { if (*str == ch) return (WCHAR *)str; } while (*str++);
+    return NULL;
+}
+
+static inline int strncmpW( const WCHAR *str1, const WCHAR *str2, int n )
+{
+    if (n <= 0) return 0;
+    while ((--n > 0) && *str1 && (*str1 == *str2)) { str1++; str2++; }
+    return *str1 - *str2;
+}
 
 static void test_devenum(IBindCtx *bind_ctx)
 {
@@ -618,6 +634,322 @@ static BOOL CALLBACK test_dsound(GUID *guid, const WCHAR *desc, const WCHAR *mod
     return TRUE;
 }
 
+static void test_waveout(void)
+{
+    static const WCHAR defaultW[] = {'D','e','f','a','u','l','t',' ','W','a','v','e','O','u','t',' ','D','e','v','i','c','e',0};
+    static const WCHAR waveoutidW[] = {'W','a','v','e','O','u','t','I','d',0};
+    IParseDisplayName *parser;
+    IPropertyBag *prop_bag;
+    IMoniker *mon;
+    WCHAR endpoint[200];
+    WAVEOUTCAPSW caps;
+    WCHAR buffer[200];
+    const WCHAR *name;
+    MMRESULT mmr;
+    int count, i;
+    VARIANT var;
+    HRESULT hr;
+
+    hr = CoCreateInstance(&CLSID_CDeviceMoniker, NULL, CLSCTX_INPROC, &IID_IParseDisplayName, (void **)&parser);
+    ok(hr == S_OK, "Failed to create ParseDisplayName: %#x\n", hr);
+
+    count = waveOutGetNumDevs();
+
+    for (i = -1; i < count; i++)
+    {
+        waveOutGetDevCapsW(i, &caps, sizeof(caps));
+
+        if (i == -1)    /* WAVE_MAPPER */
+            name = defaultW;
+        else
+            name = caps.szPname;
+
+        lstrcpyW(buffer, deviceW);
+        lstrcatW(buffer, cmW);
+        StringFromGUID2(&CLSID_AudioRendererCategory, buffer + lstrlenW(buffer), CHARS_IN_GUID);
+        lstrcatW(buffer, backslashW);
+        lstrcatW(buffer, name);
+
+        mon = check_display_name(parser, buffer);
+
+        hr = IMoniker_BindToStorage(mon, NULL, NULL, &IID_IPropertyBag, (void **)&prop_bag);
+        ok(hr == S_OK, "BindToStorage failed: %#x\n", hr);
+
+        VariantInit(&var);
+        hr = IPropertyBag_Read(prop_bag, friendly_name, &var, NULL);
+        if (hr == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
+        {
+            IPropertyBag_Release(prop_bag);
+            IMoniker_Release(mon);
+
+            /* Win8+ uses the endpoint GUID instead of the device name */
+            mmr = waveOutMessage((HWAVEOUT)(DWORD_PTR) i, DRV_QUERYFUNCTIONINSTANCEID,
+                                 (DWORD_PTR) endpoint, sizeof(endpoint));
+            ok(!mmr, "waveOutMessage failed: %u\n", mmr);
+
+            lstrcpyW(buffer, deviceW);
+            lstrcatW(buffer, cmW);
+            StringFromGUID2(&CLSID_AudioRendererCategory, buffer + lstrlenW(buffer), CHARS_IN_GUID);
+            lstrcatW(buffer, backslashW);
+            lstrcatW(buffer, waveW);
+            lstrcatW(buffer, strchrW(endpoint, '}') + 2);
+
+            mon = check_display_name(parser, buffer);
+
+            hr = IMoniker_BindToStorage(mon, NULL, NULL, &IID_IPropertyBag, (void **)&prop_bag);
+            ok(hr == S_OK, "BindToStorage failed: %#x\n", hr);
+
+            hr = IPropertyBag_Read(prop_bag, friendly_name, &var, NULL);
+        }
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+
+        ok(!strncmpW(name, V_BSTR(&var), lstrlenW(name)), "expected %s, got %s\n",
+            wine_dbgstr_w(name), wine_dbgstr_w(V_BSTR(&var)));
+
+        VariantClear(&var);
+        hr = IPropertyBag_Read(prop_bag, clsidW, &var, NULL);
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+
+        StringFromGUID2(&CLSID_AudioRender, buffer, CHARS_IN_GUID);
+        ok(!lstrcmpW(buffer, V_BSTR(&var)), "expected %s, got %s\n",
+            wine_dbgstr_w(buffer), wine_dbgstr_w(V_BSTR(&var)));
+
+        VariantClear(&var);
+        hr = IPropertyBag_Read(prop_bag, waveoutidW, &var, NULL);
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+
+        ok(V_I4(&var) == i, "expected %d, got %d\n", i, V_I4(&var));
+
+        IPropertyBag_Release(prop_bag);
+        IMoniker_Release(mon);
+    }
+
+    IParseDisplayName_Release(parser);
+}
+
+static void test_wavein(void)
+{
+    static const WCHAR waveinidW[] = {'W','a','v','e','I','n','I','d',0};
+    IParseDisplayName *parser;
+    IPropertyBag *prop_bag;
+    IMoniker *mon;
+    WCHAR endpoint[200];
+    WCHAR buffer[200];
+    WAVEINCAPSW caps;
+    MMRESULT mmr;
+    int count, i;
+    VARIANT var;
+    HRESULT hr;
+
+    hr = CoCreateInstance(&CLSID_CDeviceMoniker, NULL, CLSCTX_INPROC, &IID_IParseDisplayName, (void **)&parser);
+    ok(hr == S_OK, "Failed to create ParseDisplayName: %#x\n", hr);
+
+    count = waveInGetNumDevs();
+
+    for (i = 0; i < count; i++)
+    {
+        waveInGetDevCapsW(i, &caps, sizeof(caps));
+
+        lstrcpyW(buffer, deviceW);
+        lstrcatW(buffer, cmW);
+        StringFromGUID2(&CLSID_AudioInputDeviceCategory, buffer + lstrlenW(buffer), CHARS_IN_GUID);
+        lstrcatW(buffer, backslashW);
+        lstrcatW(buffer, caps.szPname);
+
+        mon = check_display_name(parser, buffer);
+
+        hr = IMoniker_BindToStorage(mon, NULL, NULL, &IID_IPropertyBag, (void **)&prop_bag);
+        ok(hr == S_OK, "BindToStorage failed: %#x\n", hr);
+
+        VariantInit(&var);
+        hr = IPropertyBag_Read(prop_bag, friendly_name, &var, NULL);
+        if (hr == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
+        {
+            IPropertyBag_Release(prop_bag);
+            IMoniker_Release(mon);
+
+            /* Win8+ uses the endpoint GUID instead of the device name */
+            mmr = waveInMessage((HWAVEIN)(DWORD_PTR) i, DRV_QUERYFUNCTIONINSTANCEID,
+                                (DWORD_PTR) endpoint, sizeof(endpoint));
+            ok(!mmr, "waveInMessage failed: %u\n", mmr);
+
+            lstrcpyW(buffer, deviceW);
+            lstrcatW(buffer, cmW);
+            StringFromGUID2(&CLSID_AudioInputDeviceCategory, buffer + lstrlenW(buffer), CHARS_IN_GUID);
+            lstrcatW(buffer, backslashW);
+            lstrcatW(buffer, waveW);
+            lstrcatW(buffer, strchrW(endpoint, '}') + 2);
+
+            mon = check_display_name(parser, buffer);
+
+            hr = IMoniker_BindToStorage(mon, NULL, NULL, &IID_IPropertyBag, (void **)&prop_bag);
+            ok(hr == S_OK, "BindToStorage failed: %#x\n", hr);
+
+            hr = IPropertyBag_Read(prop_bag, friendly_name, &var, NULL);
+        }
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+
+        ok(!strncmpW(caps.szPname, V_BSTR(&var), lstrlenW(caps.szPname)), "expected %s, got %s\n",
+            wine_dbgstr_w(caps.szPname), wine_dbgstr_w(V_BSTR(&var)));
+
+        VariantClear(&var);
+        hr = IPropertyBag_Read(prop_bag, clsidW, &var, NULL);
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+
+        StringFromGUID2(&CLSID_AudioRecord, buffer, CHARS_IN_GUID);
+        ok(!lstrcmpW(buffer, V_BSTR(&var)), "expected %s, got %s\n",
+            wine_dbgstr_w(buffer), wine_dbgstr_w(V_BSTR(&var)));
+
+        VariantClear(&var);
+        hr = IPropertyBag_Read(prop_bag, waveinidW, &var, NULL);
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+
+        ok(V_I4(&var) == i, "expected %d, got %d\n", i, V_I4(&var));
+
+        IPropertyBag_Release(prop_bag);
+        IMoniker_Release(mon);
+    }
+
+    IParseDisplayName_Release(parser);
+}
+
+static void test_midiout(void)
+{
+    static const WCHAR defaultW[] = {'D','e','f','a','u','l','t',' ','M','i','d','i','O','u','t',' ','D','e','v','i','c','e',0};
+    static const WCHAR midioutidW[] = {'M','i','d','i','O','u','t','I','d',0};
+    IParseDisplayName *parser;
+    IPropertyBag *prop_bag;
+    IMoniker *mon;
+    MIDIOUTCAPSW caps;
+    WCHAR buffer[200];
+    const WCHAR *name;
+    int count, i;
+    VARIANT var;
+    HRESULT hr;
+
+    hr = CoCreateInstance(&CLSID_CDeviceMoniker, NULL, CLSCTX_INPROC, &IID_IParseDisplayName, (void **)&parser);
+    ok(hr == S_OK, "Failed to create ParseDisplayName: %#x\n", hr);
+
+    count = midiOutGetNumDevs();
+
+    for (i = -1; i < count; i++)
+    {
+        midiOutGetDevCapsW(i, &caps, sizeof(caps));
+
+        if (i == -1)    /* MIDI_MAPPER */
+            name = defaultW;
+        else
+            name = caps.szPname;
+
+        lstrcpyW(buffer, deviceW);
+        lstrcatW(buffer, cmW);
+        StringFromGUID2(&CLSID_MidiRendererCategory, buffer + lstrlenW(buffer), CHARS_IN_GUID);
+        lstrcatW(buffer, backslashW);
+        lstrcatW(buffer, name);
+
+        mon = check_display_name(parser, buffer);
+
+        hr = IMoniker_BindToStorage(mon, NULL, NULL, &IID_IPropertyBag, (void **)&prop_bag);
+        ok(hr == S_OK, "BindToStorage failed: %#x\n", hr);
+
+        VariantInit(&var);
+        hr = IPropertyBag_Read(prop_bag, friendly_name, &var, NULL);
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+
+        ok(!lstrcmpW(name, V_BSTR(&var)), "expected %s, got %s\n",
+            wine_dbgstr_w(name), wine_dbgstr_w(V_BSTR(&var)));
+
+        VariantClear(&var);
+        hr = IPropertyBag_Read(prop_bag, clsidW, &var, NULL);
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+
+        StringFromGUID2(&CLSID_AVIMIDIRender, buffer, CHARS_IN_GUID);
+        ok(!lstrcmpW(buffer, V_BSTR(&var)), "expected %s, got %s\n",
+            wine_dbgstr_w(buffer), wine_dbgstr_w(V_BSTR(&var)));
+
+        VariantClear(&var);
+        hr = IPropertyBag_Read(prop_bag, midioutidW, &var, NULL);
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+
+        ok(V_I4(&var) == i, "expected %d, got %d\n", i, V_I4(&var));
+
+        IPropertyBag_Release(prop_bag);
+        IMoniker_Release(mon);
+    }
+
+    IParseDisplayName_Release(parser);
+}
+
+static void test_vfw(void)
+{
+    static const WCHAR fcchandlerW[] = {'F','c','c','H','a','n','d','l','e','r',0};
+    IParseDisplayName *parser;
+    IPropertyBag *prop_bag;
+    IMoniker *mon;
+    WCHAR buffer[200];
+    ICINFO info;
+    VARIANT var;
+    HRESULT hr;
+    int i = 0;
+    HIC hic;
+
+    if (broken(sizeof(void *) == 8))
+    {
+        win_skip("VFW codecs are not enumerated on 64-bit Windows\n");
+        return;
+    }
+
+    hr = CoCreateInstance(&CLSID_CDeviceMoniker, NULL, CLSCTX_INPROC, &IID_IParseDisplayName, (void **)&parser);
+    ok(hr == S_OK, "Failed to create ParseDisplayName: %#x\n", hr);
+
+    while (ICInfo(ICTYPE_VIDEO, i++, &info))
+    {
+        WCHAR name[5] = {LOBYTE(LOWORD(info.fccHandler)), HIBYTE(LOWORD(info.fccHandler)),
+                         LOBYTE(HIWORD(info.fccHandler)), HIBYTE(HIWORD(info.fccHandler))};
+
+        hic = ICOpen(ICTYPE_VIDEO, info.fccHandler, ICMODE_QUERY);
+        ICGetInfo(hic, &info, sizeof(info));
+        ICClose(hic);
+
+        lstrcpyW(buffer, deviceW);
+        lstrcatW(buffer, cmW);
+        StringFromGUID2(&CLSID_VideoCompressorCategory, buffer + lstrlenW(buffer), CHARS_IN_GUID);
+        lstrcatW(buffer, backslashW);
+        lstrcatW(buffer, name);
+
+        mon = check_display_name(parser, buffer);
+
+        hr = IMoniker_BindToStorage(mon, NULL, NULL, &IID_IPropertyBag, (void **)&prop_bag);
+        ok(hr == S_OK, "BindToStorage failed: %#x\n", hr);
+
+        VariantInit(&var);
+        hr = IPropertyBag_Read(prop_bag, friendly_name, &var, NULL);
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+
+        ok(!lstrcmpW(info.szDescription, V_BSTR(&var)), "expected %s, got %s\n",
+            wine_dbgstr_w(info.szDescription), wine_dbgstr_w(V_BSTR(&var)));
+
+        VariantClear(&var);
+        hr = IPropertyBag_Read(prop_bag, clsidW, &var, NULL);
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+
+        StringFromGUID2(&CLSID_AVICo, buffer, CHARS_IN_GUID);
+        ok(!lstrcmpW(buffer, V_BSTR(&var)), "expected %s, got %s\n",
+            wine_dbgstr_w(buffer), wine_dbgstr_w(V_BSTR(&var)));
+
+        VariantClear(&var);
+        hr = IPropertyBag_Read(prop_bag, fcchandlerW, &var, NULL);
+        ok(hr == S_OK, "Read failed: %#x\n", hr);
+        ok(!lstrcmpW(name, V_BSTR(&var)), "expected %s, got %s\n",
+            wine_dbgstr_w(name), wine_dbgstr_w(V_BSTR(&var)));
+
+        IPropertyBag_Release(prop_bag);
+        IMoniker_Release(mon);
+    }
+
+    IParseDisplayName_Release(parser);
+}
+
 START_TEST(devenum)
 {
     IBindCtx *bind_ctx = NULL;
@@ -643,6 +975,10 @@ START_TEST(devenum)
     test_legacy_filter();
     hr = DirectSoundEnumerateW(test_dsound, NULL);
     ok(hr == S_OK, "got %#x\n", hr);
+    test_waveout();
+    test_wavein();
+    test_midiout();
+    test_vfw();
 
     CoUninitialize();
 }

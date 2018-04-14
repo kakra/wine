@@ -144,7 +144,8 @@ static void context_attach_gl_texture_fbo(struct wined3d_context *context,
         gl_info->fbo_ops.glFramebufferTexture(fbo_target, attachment,
                 resource->object, resource->level);
     }
-    else if (resource->target == GL_TEXTURE_2D_ARRAY || resource->target == GL_TEXTURE_3D)
+    else if (resource->target == GL_TEXTURE_1D_ARRAY || resource->target == GL_TEXTURE_2D_ARRAY
+            || resource->target == GL_TEXTURE_3D)
     {
         if (!gl_info->fbo_ops.glFramebufferTextureLayer)
         {
@@ -154,6 +155,11 @@ static void context_attach_gl_texture_fbo(struct wined3d_context *context,
 
         gl_info->fbo_ops.glFramebufferTextureLayer(fbo_target, attachment,
                 resource->object, resource->level, resource->layer);
+    }
+    else if (resource->target == GL_TEXTURE_1D)
+    {
+        gl_info->fbo_ops.glFramebufferTexture1D(fbo_target, attachment,
+                resource->target, resource->object, resource->level);
     }
     else
     {
@@ -242,6 +248,8 @@ static void context_dump_fbo_attachment(const struct wined3d_gl_info *gl_info, G
     }
     texture_type[] =
     {
+        {GL_TEXTURE_1D,                   GL_TEXTURE_BINDING_1D,                   "1d",          WINED3D_GL_EXT_NONE},
+        {GL_TEXTURE_1D_ARRAY,             GL_TEXTURE_BINDING_1D_ARRAY,             "1d-array",    EXT_TEXTURE_ARRAY},
         {GL_TEXTURE_2D,                   GL_TEXTURE_BINDING_2D,                   "2d",          WINED3D_GL_EXT_NONE},
         {GL_TEXTURE_RECTANGLE_ARB,        GL_TEXTURE_BINDING_RECTANGLE_ARB,        "rectangle",   ARB_TEXTURE_RECTANGLE},
         {GL_TEXTURE_2D_ARRAY,             GL_TEXTURE_BINDING_2D_ARRAY,             "2d-array" ,   EXT_TEXTURE_ARRAY},
@@ -1742,6 +1750,7 @@ void context_bind_dummy_textures(const struct wined3d_device *device, const stru
     {
         GL_EXTCALL(glActiveTexture(GL_TEXTURE0 + i));
 
+        gl_info->gl_ops.gl.p_glBindTexture(GL_TEXTURE_1D, textures->tex_1d);
         gl_info->gl_ops.gl.p_glBindTexture(GL_TEXTURE_2D, textures->tex_2d);
 
         if (gl_info->supported[ARB_TEXTURE_RECTANGLE])
@@ -1757,7 +1766,10 @@ void context_bind_dummy_textures(const struct wined3d_device *device, const stru
             gl_info->gl_ops.gl.p_glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, textures->tex_cube_array);
 
         if (gl_info->supported[EXT_TEXTURE_ARRAY])
+        {
+            gl_info->gl_ops.gl.p_glBindTexture(GL_TEXTURE_1D_ARRAY, textures->tex_1d_array);
             gl_info->gl_ops.gl.p_glBindTexture(GL_TEXTURE_2D_ARRAY, textures->tex_2d_array);
+        }
 
         if (gl_info->supported[ARB_TEXTURE_BUFFER_OBJECT])
             gl_info->gl_ops.gl.p_glBindTexture(GL_TEXTURE_BUFFER, textures->tex_buffer);
@@ -2491,6 +2503,12 @@ void context_bind_texture(struct wined3d_context *context, GLenum target, GLuint
             case GL_NONE:
                 /* nothing to do */
                 break;
+            case GL_TEXTURE_1D:
+                gl_info->gl_ops.gl.p_glBindTexture(GL_TEXTURE_1D, textures->tex_1d);
+                break;
+            case GL_TEXTURE_1D_ARRAY:
+                gl_info->gl_ops.gl.p_glBindTexture(GL_TEXTURE_1D_ARRAY, textures->tex_1d_array);
+                break;
             case GL_TEXTURE_2D:
                 gl_info->gl_ops.gl.p_glBindTexture(GL_TEXTURE_2D, textures->tex_2d);
                 break;
@@ -2809,6 +2827,11 @@ void context_apply_blit_state(struct wined3d_context *context, const struct wine
     {
         gl_info->gl_ops.gl.p_glDisable(GL_POINT_SPRITE_ARB);
         context_invalidate_state(context, STATE_RENDER(WINED3D_RS_POINTSPRITEENABLE));
+    }
+    if (gl_info->supported[ARB_FRAMEBUFFER_SRGB])
+    {
+        gl_info->gl_ops.gl.p_glDisable(GL_FRAMEBUFFER_SRGB);
+        context_invalidate_state(context, STATE_RENDER(WINED3D_RS_SRGBWRITEENABLE));
     }
     gl_info->gl_ops.gl.p_glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     context_invalidate_state(context, STATE_RENDER(WINED3D_RS_COLORWRITEENABLE));
@@ -4962,4 +4985,126 @@ void draw_primitive(struct wined3d_device *device, const struct wined3d_state *s
         wined3d_fence_issue(context->buffer_fences[i], device);
 
     context_release(context);
+}
+
+static void apply_texture_blit_state(const struct wined3d_gl_info *gl_info, struct gl_texture *texture,
+        GLenum target, unsigned int level, enum wined3d_texture_filter_type filter)
+{
+    gl_info->gl_ops.gl.p_glTexParameteri(target, GL_TEXTURE_MAG_FILTER, wined3d_gl_mag_filter(filter));
+    gl_info->gl_ops.gl.p_glTexParameteri(target, GL_TEXTURE_MIN_FILTER,
+            wined3d_gl_min_mip_filter(filter, WINED3D_TEXF_NONE));
+    gl_info->gl_ops.gl.p_glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    gl_info->gl_ops.gl.p_glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    if (gl_info->supported[EXT_TEXTURE_SRGB_DECODE])
+        gl_info->gl_ops.gl.p_glTexParameteri(target, GL_TEXTURE_SRGB_DECODE_EXT, GL_SKIP_DECODE_EXT);
+    gl_info->gl_ops.gl.p_glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, level);
+
+    /* We changed the filtering settings on the texture. Make sure they get
+     * reset on subsequent draws. */
+    texture->sampler_desc.mag_filter = WINED3D_TEXF_POINT;
+    texture->sampler_desc.min_filter = WINED3D_TEXF_POINT;
+    texture->sampler_desc.mip_filter = WINED3D_TEXF_NONE;
+    texture->sampler_desc.address_u = WINED3D_TADDRESS_CLAMP;
+    texture->sampler_desc.address_v = WINED3D_TADDRESS_CLAMP;
+    texture->sampler_desc.srgb_decode = FALSE;
+    texture->base_level = level;
+}
+
+/* Context activation is done by the caller. */
+void context_draw_shaded_quad(struct wined3d_context *context, struct wined3d_texture *texture,
+        unsigned int sub_resource_idx, const RECT *src_rect, const RECT *dst_rect,
+        enum wined3d_texture_filter_type filter)
+{
+    const struct wined3d_gl_info *gl_info = context->gl_info;
+    struct wined3d_blt_info info;
+    unsigned int level, w, h, i;
+    SIZE dst_size;
+    struct blit_vertex
+    {
+        float x, y;
+        struct wined3d_vec3 texcoord;
+    }
+    quad[4];
+
+    texture2d_get_blt_info(texture, sub_resource_idx, src_rect, &info);
+
+    level = sub_resource_idx % texture->level_count;
+    context_bind_texture(context, info.bind_target, texture->texture_rgb.name);
+    apply_texture_blit_state(gl_info, &texture->texture_rgb, info.bind_target, level, filter);
+    gl_info->gl_ops.gl.p_glTexParameteri(info.bind_target, GL_TEXTURE_MAX_LEVEL, level);
+
+    context_get_rt_size(context, &dst_size);
+    w = dst_size.cx;
+    h = dst_size.cy;
+
+    quad[0].x = dst_rect->left * 2.0f / w - 1.0f;
+    quad[0].y = dst_rect->top * 2.0f / h - 1.0f;
+    quad[0].texcoord = info.texcoords[0];
+
+    quad[1].x = dst_rect->right * 2.0f / w - 1.0f;
+    quad[1].y = dst_rect->top * 2.0f / h - 1.0f;
+    quad[1].texcoord = info.texcoords[1];
+
+    quad[2].x = dst_rect->left * 2.0f / w - 1.0f;
+    quad[2].y = dst_rect->bottom * 2.0f / h - 1.0f;
+    quad[2].texcoord = info.texcoords[2];
+
+    quad[3].x = dst_rect->right * 2.0f / w - 1.0f;
+    quad[3].y = dst_rect->bottom * 2.0f / h - 1.0f;
+    quad[3].texcoord = info.texcoords[3];
+
+    /* Draw a quad. */
+    gl_info->gl_ops.gl.p_glBegin(GL_TRIANGLE_STRIP);
+
+    for (i = 0; i < ARRAY_SIZE(quad); ++i)
+    {
+        GL_EXTCALL(glVertexAttrib3fv(1, &quad[i].texcoord.x));
+        GL_EXTCALL(glVertexAttrib2fv(0, &quad[i].x));
+    }
+
+    gl_info->gl_ops.gl.p_glEnd();
+    checkGLcall("draw");
+
+    gl_info->gl_ops.gl.p_glTexParameteri(info.bind_target, GL_TEXTURE_MAX_LEVEL, texture->level_count - 1);
+    context_bind_texture(context, info.bind_target, 0);
+}
+
+/* Context activation is done by the caller. */
+void context_draw_textured_quad(struct wined3d_context *context, struct wined3d_texture *texture,
+        unsigned int sub_resource_idx, const RECT *src_rect, const RECT *dst_rect,
+        enum wined3d_texture_filter_type filter)
+{
+    const struct wined3d_gl_info *gl_info = context->gl_info;
+    struct wined3d_blt_info info;
+    unsigned int level;
+
+    texture2d_get_blt_info(texture, sub_resource_idx, src_rect, &info);
+
+    gl_info->gl_ops.gl.p_glEnable(info.bind_target);
+    checkGLcall("glEnable(bind_target)");
+
+    level = sub_resource_idx % texture->level_count;
+    context_bind_texture(context, info.bind_target, texture->texture_rgb.name);
+    apply_texture_blit_state(gl_info, &texture->texture_rgb, info.bind_target, level, filter);
+    gl_info->gl_ops.gl.p_glTexParameteri(info.bind_target, GL_TEXTURE_MAX_LEVEL, level);
+    gl_info->gl_ops.gl.p_glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    checkGLcall("glTexEnvi");
+
+    /* Draw a quad. */
+    gl_info->gl_ops.gl.p_glBegin(GL_TRIANGLE_STRIP);
+    gl_info->gl_ops.gl.p_glTexCoord3fv(&info.texcoords[0].x);
+    gl_info->gl_ops.gl.p_glVertex2i(dst_rect->left, dst_rect->top);
+
+    gl_info->gl_ops.gl.p_glTexCoord3fv(&info.texcoords[1].x);
+    gl_info->gl_ops.gl.p_glVertex2i(dst_rect->right, dst_rect->top);
+
+    gl_info->gl_ops.gl.p_glTexCoord3fv(&info.texcoords[2].x);
+    gl_info->gl_ops.gl.p_glVertex2i(dst_rect->left, dst_rect->bottom);
+
+    gl_info->gl_ops.gl.p_glTexCoord3fv(&info.texcoords[3].x);
+    gl_info->gl_ops.gl.p_glVertex2i(dst_rect->right, dst_rect->bottom);
+    gl_info->gl_ops.gl.p_glEnd();
+
+    gl_info->gl_ops.gl.p_glTexParameteri(info.bind_target, GL_TEXTURE_MAX_LEVEL, texture->level_count - 1);
+    context_bind_texture(context, info.bind_target, 0);
 }

@@ -304,6 +304,7 @@ extern BOOL GDI_dec_ref_count( HGDIOBJ handle ) DECLSPEC_HIDDEN;
 extern void GDI_hdc_using_object(HGDIOBJ obj, HDC hdc) DECLSPEC_HIDDEN;
 extern void GDI_hdc_not_using_object(HGDIOBJ obj, HDC hdc) DECLSPEC_HIDDEN;
 extern DWORD get_dpi(void) DECLSPEC_HIDDEN;
+extern DWORD get_system_dpi(void) DECLSPEC_HIDDEN;
 
 /* mapping.c */
 extern BOOL dp_to_lp( DC *dc, POINT *points, INT count ) DECLSPEC_HIDDEN;
@@ -354,6 +355,8 @@ extern HPALETTE PALETTE_Init(void) DECLSPEC_HIDDEN;
 extern BOOL add_rect_to_region( HRGN rgn, const RECT *rect ) DECLSPEC_HIDDEN;
 extern INT mirror_region( HRGN dst, HRGN src, INT width ) DECLSPEC_HIDDEN;
 extern BOOL REGION_FrameRgn( HRGN dest, HRGN src, INT x, INT y ) DECLSPEC_HIDDEN;
+extern HRGN create_polypolygon_region( const POINT *pts, const INT *count, INT nbpolygons,
+                                       INT mode, const RECT *clip_rect ) DECLSPEC_HIDDEN;
 
 #define RGN_DEFAULT_RECTS 4
 typedef struct

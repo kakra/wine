@@ -3248,6 +3248,7 @@ static unsigned int write_union_tfs(FILE *file, const attr_list_t *attrs,
     unsigned int nbranch = 0;
     type_t *deftype = NULL;
     short nodeftype = 0xffff;
+    unsigned int dummy;
     var_t *f;
 
     if (processed(type) &&
@@ -3256,9 +3257,9 @@ static unsigned int write_union_tfs(FILE *file, const attr_list_t *attrs,
 
     guard_rec(type);
 
-    size = type_memsize(type);
-
     fields = type_union_get_cases(type);
+
+    size = union_memsize(fields, &dummy);
 
     if (fields) LIST_FOR_EACH_ENTRY(f, fields, var_t, entry)
     {
@@ -3276,6 +3277,7 @@ static unsigned int write_union_tfs(FILE *file, const attr_list_t *attrs,
     {
         const var_t *sv = type_union_get_switch_value(type);
         const type_t *st = sv->type;
+        unsigned int align = 0;
         unsigned char fc;
 
         if (type_get_type(st) == TYPE_BASIC)
@@ -3303,9 +3305,16 @@ static unsigned int write_union_tfs(FILE *file, const attr_list_t *attrs,
         else
             error("union switch type must be an integer, char, or enum\n");
 
+        type_memsize_and_alignment(st, &align);
+        if (fields) LIST_FOR_EACH_ENTRY(f, fields, var_t, entry)
+        {
+            if (f->type)
+                type_memsize_and_alignment(f->type, &align);
+        }
+
         print_file(file, 2, "0x%x,\t/* FC_ENCAPSULATED_UNION */\n", RPC_FC_ENCAPSULATED_UNION);
         print_file(file, 2, "0x%x,\t/* Switch type= %s */\n",
-                   0x40 | fc, string_of_type(fc));
+                   (align << 4) | fc, string_of_type(fc));
         *tfsoff += 2;
     }
     else if (is_attr(type->attrs, ATTR_SWITCHTYPE))

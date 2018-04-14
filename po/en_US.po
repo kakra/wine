@@ -2941,14 +2941,6 @@ msgstr "Note: The private key for this certificate could not be opened."
 msgid "Note: The private key for this certificate is not exportable."
 msgstr "Note: The private key for this certificate is not exportable."
 
-#: devenum.rc:33
-msgid "Default WaveOut Device"
-msgstr "Default WaveOut Device"
-
-#: devenum.rc:34
-msgid "Default MidiOut Device"
-msgstr "Default MidiOut Device"
-
 #: dinput.rc:43
 msgid "Configure Devices"
 msgstr "Configure Devices"
@@ -9110,6 +9102,62 @@ msgid ""
 "There is at least one unspecified security problem with this certificate."
 msgstr ""
 "There is at least one unspecified security problem with this certificate."
+
+#: winineterror.mc:26
+msgid "The request has timed out.\n"
+msgstr "The request has timed out.\n"
+
+#: winineterror.mc:31
+msgid "An internal error has occurred.\n"
+msgstr "An internal error has occurred.\n"
+
+#: winineterror.mc:36
+msgid "The URL is invalid.\n"
+msgstr "The URL is invalid.\n"
+
+#: winineterror.mc:41
+msgid "The URL scheme could not be recognized or is not supported.\n"
+msgstr "The URL scheme could not be recognized or is not supported.\n"
+
+#: winineterror.mc:46
+msgid "The server name could not be resolved.\n"
+msgstr "The server name could not be resolved.\n"
+
+#: winineterror.mc:51
+msgid "The requested operation is invalid.\n"
+msgstr "The requested operation is invalid.\n"
+
+#: winineterror.mc:56
+msgid ""
+"The operation was canceled, usually because the handle on which the request "
+"was operating was closed before the operation completed.\n"
+msgstr ""
+"The operation was canceled, usually because the handle on which the request "
+"was operating was closed before the operation completed.\n"
+
+#: winineterror.mc:61
+msgid "The requested item could not be located.\n"
+msgstr "The requested item could not be located.\n"
+
+#: winineterror.mc:66
+msgid "The attempt to connect to the server failed.\n"
+msgstr "The attempt to connect to the server failed.\n"
+
+#: winineterror.mc:71
+msgid "The connection with the server has been terminated.\n"
+msgstr "The connection with the server has been terminated.\n"
+
+#: winineterror.mc:76
+msgid ""
+"SSL certificate date that was received from the server is bad. The "
+"certificate is expired.\n"
+msgstr ""
+"SSL certificate date that was received from the server is bad. The "
+"certificate is expired.\n"
+
+#: winineterror.mc:81
+msgid "SSL certificate common name (host name field) is incorrect.\n"
+msgstr "SSL certificate common name (host name field) is incorrect.\n"
 
 #: winmm.rc:32
 msgid "The specified command was carried out."

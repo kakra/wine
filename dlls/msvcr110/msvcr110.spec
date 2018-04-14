@@ -904,8 +904,8 @@
 @ cdecl __clean_type_info_names_internal(ptr)
 @ cdecl -arch=i386 __control87_2(long long ptr ptr)
 @ cdecl __create_locale(long str) MSVCRT__create_locale
-@ stub -arch=win64 __crtCaptureCurrentContext
-@ stub -arch=win64 __crtCapturePreviousContext
+@ cdecl -arch=win64 -norelay __crtCaptureCurrentContext(ptr) ntdll.RtlCaptureContext
+@ cdecl -arch=x86_64 -norelay __crtCapturePreviousContext(ptr)
 @ cdecl __crtCompareStringA(long long str long str long)
 @ stub -arch=i386,win64 __crtCompareStringEx
 @ cdecl __crtCompareStringW(long long wstr long wstr long)

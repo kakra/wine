@@ -25,6 +25,12 @@
 #define USE_STRUCT_CONVERSION
 #endif
 
+#include "wine/debug.h"
+#include "wine/heap.h"
+#define VK_NO_PROTOTYPES
+#include "wine/vulkan.h"
+#include "wine/vulkan_driver.h"
+
 #include "vulkan_thunks.h"
 
 /* Magic value defined by Vulkan ICD / Loader spec */
@@ -58,7 +64,7 @@ struct wine_vk_base
 struct VkCommandBuffer_T
 {
     struct wine_vk_base base;
-    VkDevice device; /* parent */
+    struct VkDevice_T *device; /* parent */
     VkCommandBuffer command_buffer; /* native command buffer */
 };
 
@@ -66,12 +72,10 @@ struct VkDevice_T
 {
     struct wine_vk_base base;
     struct vulkan_device_funcs funcs;
-    struct VkPhysicalDevice_T *phys_dev; /* parent */
-
-    uint32_t max_queue_families;
-    struct VkQueue_T **queues;
-
     VkDevice device; /* native device */
+
+    struct VkQueue_T **queues;
+    uint32_t max_queue_families;
 
     unsigned int quirks;
 };
@@ -80,14 +84,13 @@ struct VkInstance_T
 {
     struct wine_vk_base base;
     struct vulkan_instance_funcs funcs;
+    VkInstance instance; /* native instance */
 
     /* We cache devices as we need to wrap them as they are
      * dispatchable objects.
      */
-    uint32_t num_phys_devs;
     struct VkPhysicalDevice_T **phys_devs;
-
-    VkInstance instance; /* native instance */
+    uint32_t num_phys_devs;
 
     unsigned int quirks;
 };
@@ -96,17 +99,16 @@ struct VkPhysicalDevice_T
 {
     struct wine_vk_base base;
     struct VkInstance_T *instance; /* parent */
-
-    uint32_t extension_count;
-    VkExtensionProperties *extensions;
-
     VkPhysicalDevice phys_dev; /* native physical device */
+
+    VkExtensionProperties *extensions;
+    uint32_t extension_count;
 };
 
 struct VkQueue_T
 {
     struct wine_vk_base base;
-    VkDevice device; /* parent */
+    struct VkDevice_T *device; /* parent */
     VkQueue queue; /* native queue */
 };
 

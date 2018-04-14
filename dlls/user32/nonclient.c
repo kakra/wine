@@ -343,7 +343,7 @@ BOOL WINAPI DrawCaptionTempW (HWND hwnd, HDC hdc, const RECT *rect, HFONT hFont,
 
         if (!str)
         {
-            if (!GetWindowTextW( hwnd, text, sizeof(text)/sizeof(WCHAR) )) text[0] = 0;
+            if (!GetWindowTextW( hwnd, text, ARRAY_SIZE( text ))) text[0] = 0;
             str = text;
         }
         rc.left += 2;
@@ -703,7 +703,7 @@ BOOL NC_DrawSysButton (HWND hwnd, HDC hdc, BOOL down)
 
         NC_GetInsideRect( hwnd, COORDS_WINDOW, &rect, style, ex_style );
         pt.x = rect.left + 2;
-        pt.y = (rect.top + GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYSMICON)) / 2;
+        pt.y = rect.top + (GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYSMICON)) / 2;
         DrawIconEx (hdc, pt.x, pt.y, hIcon,
                     GetSystemMetrics(SM_CXSMICON),
                     GetSystemMetrics(SM_CYSMICON), 0, 0, DI_NORMAL);
@@ -953,7 +953,7 @@ static void  NC_DrawCaption( HDC  hdc, RECT *rect, HWND hwnd, DWORD  style,
         }
     }
 
-    if (GetWindowTextW( hwnd, buffer, sizeof(buffer)/sizeof(WCHAR) ))
+    if (GetWindowTextW( hwnd, buffer, ARRAY_SIZE( buffer )))
     {
         NONCLIENTMETRICSW nclm;
         HFONT hFont, hOldFont;

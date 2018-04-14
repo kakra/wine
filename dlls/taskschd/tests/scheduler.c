@@ -1424,6 +1424,12 @@ static void test_TaskDefinition(void)
         "<Task xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\n"
         "  <RegistrationInfo>\n"
         "    <Description>\"Task1\"</Description>\n"
+        "    <Author>author</Author>\n"
+        "    <Version>1.0</Version>\n"
+        "    <Date>2018-04-02T11:22:33</Date>\n"
+        "    <Documentation>doc</Documentation>\n"
+        "    <URI>uri</URI>\n"
+        "    <Source>source</Source>\n"
         "  </RegistrationInfo>\n"
         "  <Settings>\n"
         "    <Enabled>false</Enabled>\n"
@@ -1503,6 +1509,12 @@ static void test_TaskDefinition(void)
         "    </Exec>\n"
         "  </Actions>\n"
         "</Task>\n";
+    static const WCHAR authorW[] = { 'a','u','t','h','o','r',0 };
+    static const WCHAR versionW[] = { '1','.','0',0 };
+    static const WCHAR dateW[] = { '2','0','1','8','-','0','4','-','0','2','T','1','1',':','2','2',':','3','3',0 };
+    static const WCHAR docW[] = { 'd','o','c',0 };
+    static const WCHAR uriW[] = { 'u','r','i',0 };
+    static const WCHAR sourceW[] = { 's','o','u','r','c','e',0 };
     static WCHAR Task1[] = { '"','T','a','s','k','1','"',0 };
     static struct settings def_settings = { { 0 }, { 'P','T','7','2','H',0 }, { 0 },
         0, 7, TASK_INSTANCES_IGNORE_NEW, TASK_COMPATIBILITY_V2, VARIANT_TRUE, VARIANT_TRUE,
@@ -1602,24 +1614,79 @@ todo_wine
     ok(hr == S_OK, "get_Description error %#x\n", hr);
     ok(!lstrcmpW(bstr, Task1), "expected Task1, got %s\n", wine_dbgstr_w(bstr));
     SysFreeString(bstr);
+    hr = IRegistrationInfo_put_Description(reginfo, NULL);
+    ok(hr == S_OK, "put_Description error %#x\n", hr);
+    bstr = (BSTR)0xdeadbeef;
+    hr = IRegistrationInfo_get_Description(reginfo, &bstr);
+    ok(hr == S_OK, "get_Description error %#x\n", hr);
+    ok(!bstr, "expected NULL, got %s\n", wine_dbgstr_w(bstr));
+
+    hr = IRegistrationInfo_get_Author(reginfo, &bstr);
+    ok(hr == S_OK, "get_Author error %#x\n", hr);
+    ok(!lstrcmpW(bstr, authorW), "expected %s, got %s\n", wine_dbgstr_w(authorW), wine_dbgstr_w(bstr));
+    SysFreeString(bstr);
+    hr = IRegistrationInfo_put_Author(reginfo, NULL);
+    ok(hr == S_OK, "put_Author error %#x\n", hr);
+    bstr = (BSTR)0xdeadbeef;
     hr = IRegistrationInfo_get_Author(reginfo, &bstr);
     ok(hr == S_OK, "get_Author error %#x\n", hr);
     ok(!bstr, "expected NULL, got %s\n", wine_dbgstr_w(bstr));
+
+    hr = IRegistrationInfo_get_Version(reginfo, &bstr);
+    ok(hr == S_OK, "get_Version error %#x\n", hr);
+    ok(!lstrcmpW(bstr, versionW), "expected %s, got %s\n", wine_dbgstr_w(versionW), wine_dbgstr_w(bstr));
+    SysFreeString(bstr);
+    hr = IRegistrationInfo_put_Version(reginfo, NULL);
+    ok(hr == S_OK, "put_Version error %#x\n", hr);
+    bstr = (BSTR)0xdeadbeef;
     hr = IRegistrationInfo_get_Version(reginfo, &bstr);
     ok(hr == S_OK, "get_Version error %#x\n", hr);
     ok(!bstr, "expected NULL, got %s\n", wine_dbgstr_w(bstr));
+
+    hr = IRegistrationInfo_get_Date(reginfo, &bstr);
+    ok(hr == S_OK, "get_Date error %#x\n", hr);
+    ok(!lstrcmpW(bstr, dateW), "expected %s, got %s\n", wine_dbgstr_w(dateW), wine_dbgstr_w(bstr));
+    SysFreeString(bstr);
+    hr = IRegistrationInfo_put_Date(reginfo, NULL);
+    ok(hr == S_OK, "put_Date error %#x\n", hr);
+    bstr = (BSTR)0xdeadbeef;
     hr = IRegistrationInfo_get_Date(reginfo, &bstr);
     ok(hr == S_OK, "get_Date error %#x\n", hr);
     ok(!bstr, "expected NULL, got %s\n", wine_dbgstr_w(bstr));
+
+    hr = IRegistrationInfo_get_Documentation(reginfo, &bstr);
+    ok(hr == S_OK, "get_Documentation error %#x\n", hr);
+    ok(!lstrcmpW(bstr, docW), "expected %s, got %s\n", wine_dbgstr_w(docW), wine_dbgstr_w(bstr));
+    SysFreeString(bstr);
+    hr = IRegistrationInfo_put_Documentation(reginfo, NULL);
+    ok(hr == S_OK, "put_Documentation error %#x\n", hr);
+    bstr = (BSTR)0xdeadbeef;
     hr = IRegistrationInfo_get_Documentation(reginfo, &bstr);
     ok(hr == S_OK, "get_Documentation error %#x\n", hr);
     ok(!bstr, "expected NULL, got %s\n", wine_dbgstr_w(bstr));
+
+    hr = IRegistrationInfo_get_URI(reginfo, &bstr);
+    ok(hr == S_OK, "get_URI error %#x\n", hr);
+    ok(!lstrcmpW(bstr, uriW), "expected %s, got %s\n", wine_dbgstr_w(uriW), wine_dbgstr_w(bstr));
+    SysFreeString(bstr);
+    hr = IRegistrationInfo_put_URI(reginfo, NULL);
+    ok(hr == S_OK, "put_URI error %#x\n", hr);
+    bstr = (BSTR)0xdeadbeef;
     hr = IRegistrationInfo_get_URI(reginfo, &bstr);
     ok(hr == S_OK, "get_URI error %#x\n", hr);
     ok(!bstr, "expected NULL, got %s\n", wine_dbgstr_w(bstr));
+
+    hr = IRegistrationInfo_get_Source(reginfo, &bstr);
+    ok(hr == S_OK, "get_Source error %#x\n", hr);
+    ok(!lstrcmpW(bstr, sourceW), "expected %s, got %s\n", wine_dbgstr_w(sourceW), wine_dbgstr_w(bstr));
+    SysFreeString(bstr);
+    hr = IRegistrationInfo_put_Source(reginfo, NULL);
+    ok(hr == S_OK, "put_Source error %#x\n", hr);
+    bstr = (BSTR)0xdeadbeef;
     hr = IRegistrationInfo_get_Source(reginfo, &bstr);
     ok(hr == S_OK, "get_Source error %#x\n", hr);
     ok(!bstr, "expected NULL, got %s\n", wine_dbgstr_w(bstr));
+
     V_VT(&var) = VT_BSTR;
     V_BSTR(&var) = NULL;
     hr = IRegistrationInfo_get_SecurityDescriptor(reginfo, &var);
@@ -1638,7 +1705,6 @@ if (hr == S_OK)
 
     hr = IRegistrationInfo_get_Description(reginfo, &bstr);
     ok(hr == S_OK, "get_Description error %#x\n", hr);
-if (hr == S_OK)
     ok(!bstr, "expected NULL, got %s\n", wine_dbgstr_w(bstr));
 
     hr = ITaskDefinition_get_Triggers(taskdef, &trigger_col);

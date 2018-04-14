@@ -581,15 +581,14 @@ static HRESULT WINAPI RegistrationInfo_get_Description(IRegistrationInfo *iface,
 static HRESULT WINAPI RegistrationInfo_put_Description(IRegistrationInfo *iface, BSTR description)
 {
     registration_info *reginfo = impl_from_IRegistrationInfo(iface);
+    WCHAR *str = NULL;
 
     TRACE("%p,%s\n", iface, debugstr_w(description));
 
-    if (!description) return E_INVALIDARG;
-
+    if (description && !(str = heap_strdupW(description))) return E_OUTOFMEMORY;
     heap_free(reginfo->description);
-    reginfo->description = heap_strdupW(description);
-    /* FIXME: update XML on the server side */
-    return reginfo->description ? S_OK : E_OUTOFMEMORY;
+    reginfo->description = str;
+    return S_OK;
 }
 
 static HRESULT WINAPI RegistrationInfo_get_Author(IRegistrationInfo *iface, BSTR *author)
@@ -609,15 +608,14 @@ static HRESULT WINAPI RegistrationInfo_get_Author(IRegistrationInfo *iface, BSTR
 static HRESULT WINAPI RegistrationInfo_put_Author(IRegistrationInfo *iface, BSTR author)
 {
     registration_info *reginfo = impl_from_IRegistrationInfo(iface);
+    WCHAR *str = NULL;
 
     TRACE("%p,%s\n", iface, debugstr_w(author));
 
-    if (!author) return E_INVALIDARG;
-
+    if (author && !(str = heap_strdupW(author))) return E_OUTOFMEMORY;
     heap_free(reginfo->author);
-    reginfo->author = heap_strdupW(author);
-    /* FIXME: update XML on the server side */
-    return reginfo->author ? S_OK : E_OUTOFMEMORY;
+    reginfo->author = str;
+    return S_OK;
 }
 
 static HRESULT WINAPI RegistrationInfo_get_Version(IRegistrationInfo *iface, BSTR *version)
@@ -637,15 +635,14 @@ static HRESULT WINAPI RegistrationInfo_get_Version(IRegistrationInfo *iface, BST
 static HRESULT WINAPI RegistrationInfo_put_Version(IRegistrationInfo *iface, BSTR version)
 {
     registration_info *reginfo = impl_from_IRegistrationInfo(iface);
+    WCHAR *str = NULL;
 
     TRACE("%p,%s\n", iface, debugstr_w(version));
 
-    if (!version) return E_INVALIDARG;
-
+    if (version && !(str = heap_strdupW(version))) return E_OUTOFMEMORY;
     heap_free(reginfo->version);
-    reginfo->version = heap_strdupW(version);
-    /* FIXME: update XML on the server side */
-    return reginfo->version ? S_OK : E_OUTOFMEMORY;
+    reginfo->version = str;
+    return S_OK;
 }
 
 static HRESULT WINAPI RegistrationInfo_get_Date(IRegistrationInfo *iface, BSTR *date)
@@ -665,15 +662,14 @@ static HRESULT WINAPI RegistrationInfo_get_Date(IRegistrationInfo *iface, BSTR *
 static HRESULT WINAPI RegistrationInfo_put_Date(IRegistrationInfo *iface, BSTR date)
 {
     registration_info *reginfo = impl_from_IRegistrationInfo(iface);
+    WCHAR *str = NULL;
 
     TRACE("%p,%s\n", iface, debugstr_w(date));
 
-    if (!date) return E_INVALIDARG;
-
+    if (date && !(str = heap_strdupW(date))) return E_OUTOFMEMORY;
     heap_free(reginfo->date);
-    reginfo->date = heap_strdupW(date);
-    /* FIXME: update XML on the server side */
-    return reginfo->date ? S_OK : E_OUTOFMEMORY;
+    reginfo->date = str;
+    return S_OK;
 }
 
 static HRESULT WINAPI RegistrationInfo_get_Documentation(IRegistrationInfo *iface, BSTR *doc)
@@ -693,15 +689,14 @@ static HRESULT WINAPI RegistrationInfo_get_Documentation(IRegistrationInfo *ifac
 static HRESULT WINAPI RegistrationInfo_put_Documentation(IRegistrationInfo *iface, BSTR doc)
 {
     registration_info *reginfo = impl_from_IRegistrationInfo(iface);
+    WCHAR *str = NULL;
 
     TRACE("%p,%s\n", iface, debugstr_w(doc));
 
-    if (!doc) return E_INVALIDARG;
-
+    if (doc && !(str = heap_strdupW(doc))) return E_OUTOFMEMORY;
     heap_free(reginfo->documentation);
-    reginfo->documentation = heap_strdupW(doc);
-    /* FIXME: update XML on the server side */
-    return reginfo->documentation ? S_OK : E_OUTOFMEMORY;
+    reginfo->documentation = str;
+    return S_OK;
 }
 
 static HRESULT WINAPI RegistrationInfo_get_XmlText(IRegistrationInfo *iface, BSTR *xml)
@@ -733,15 +728,14 @@ static HRESULT WINAPI RegistrationInfo_get_URI(IRegistrationInfo *iface, BSTR *u
 static HRESULT WINAPI RegistrationInfo_put_URI(IRegistrationInfo *iface, BSTR uri)
 {
     registration_info *reginfo = impl_from_IRegistrationInfo(iface);
+    WCHAR *str = NULL;
 
     TRACE("%p,%s\n", iface, debugstr_w(uri));
 
-    if (!uri) return E_INVALIDARG;
-
+    if (uri && !(str = heap_strdupW(uri))) return E_OUTOFMEMORY;
     heap_free(reginfo->uri);
-    reginfo->uri = heap_strdupW(uri);
-    /* FIXME: update XML on the server side */
-    return reginfo->uri ? S_OK : E_OUTOFMEMORY;
+    reginfo->uri = str;
+    return S_OK;
 }
 
 static HRESULT WINAPI RegistrationInfo_get_SecurityDescriptor(IRegistrationInfo *iface, VARIANT *sddl)
@@ -773,15 +767,14 @@ static HRESULT WINAPI RegistrationInfo_get_Source(IRegistrationInfo *iface, BSTR
 static HRESULT WINAPI RegistrationInfo_put_Source(IRegistrationInfo *iface, BSTR source)
 {
     registration_info *reginfo = impl_from_IRegistrationInfo(iface);
+    WCHAR *str = NULL;
 
     TRACE("%p,%s\n", iface, debugstr_w(source));
 
-    if (!source) return E_INVALIDARG;
-
+    if (source && !(str = heap_strdupW(source))) return E_OUTOFMEMORY;
     heap_free(reginfo->source);
-    reginfo->source = heap_strdupW(source);
-    /* FIXME: update XML on the server side */
-    return reginfo->source ? S_OK : E_OUTOFMEMORY;
+    reginfo->source = str;
+    return S_OK;
 }
 
 static const IRegistrationInfoVtbl RegistrationInfo_vtbl =
@@ -3322,6 +3315,36 @@ static HRESULT read_registration_info(IXmlReader *reader, IRegistrationInfo *inf
                 hr = read_text_value(reader, &value);
                 if (hr == S_OK)
                     IRegistrationInfo_put_Description(info, value);
+            }
+            else if (!lstrcmpW(name, Version))
+            {
+                hr = read_text_value(reader, &value);
+                if (hr == S_OK)
+                    IRegistrationInfo_put_Version(info, value);
+            }
+            else if (!lstrcmpW(name, Date))
+            {
+                hr = read_text_value(reader, &value);
+                if (hr == S_OK)
+                    IRegistrationInfo_put_Date(info, value);
+            }
+            else if (!lstrcmpW(name, Documentation))
+            {
+                hr = read_text_value(reader, &value);
+                if (hr == S_OK)
+                    IRegistrationInfo_put_Documentation(info, value);
+            }
+            else if (!lstrcmpW(name, URI))
+            {
+                hr = read_text_value(reader, &value);
+                if (hr == S_OK)
+                    IRegistrationInfo_put_URI(info, value);
+            }
+            else if (!lstrcmpW(name, Source))
+            {
+                hr = read_text_value(reader, &value);
+                if (hr == S_OK)
+                    IRegistrationInfo_put_Source(info, value);
             }
             else
                 FIXME("unhandled RegistrationInfo element %s\n", debugstr_w(name));

@@ -727,13 +727,13 @@
 # @ stub GetNamedPipeAttribute
 # @ stub GetNamedPipeClientComputerNameA
 # @ stub GetNamedPipeClientComputerNameW
-# @ stub GetNamedPipeClientProcessId
-# @ stub GetNamedPipeClientSessionId
+@ stdcall GetNamedPipeClientProcessId(long ptr)
+@ stdcall GetNamedPipeClientSessionId(long ptr)
 @ stdcall GetNamedPipeHandleStateA(long ptr ptr ptr ptr str long)
 @ stdcall GetNamedPipeHandleStateW(long ptr ptr ptr ptr wstr long)
 @ stdcall GetNamedPipeInfo(long ptr ptr ptr ptr)
-# @ stub GetNamedPipeServerProcessId
-# @ stub GetNamedPipeServerSessionId
+@ stdcall GetNamedPipeServerProcessId(long ptr)
+@ stdcall GetNamedPipeServerSessionId(long ptr)
 @ stdcall GetNativeSystemInfo(ptr)
 @ stdcall -arch=x86_64 GetNextUmsListItem(ptr)
 @ stub GetNextVDMCommand
@@ -1271,12 +1271,12 @@
 @ stdcall ReplaceFile(wstr wstr wstr long ptr ptr) ReplaceFileW
 @ stdcall ReplaceFileA(str str str long ptr ptr)
 @ stdcall ReplaceFileW(wstr wstr wstr long ptr ptr)
-@ stub RequestDeviceWakeup
 # @ stub RemoveDirectoryTransactedA
 # @ stub RemoveDirectoryTransactedW
 @ stdcall RemoveDllDirectory(ptr)
 # @ stub RemoveSecureMemoryCacheCallback
 # @ stub ReplacePartitionUnit
+@ stdcall RequestDeviceWakeup(long)
 @ stdcall RequestWakeupLatency(long)
 @ stdcall ResetEvent(long)
 @ stdcall ResetWriteWatch(ptr long)

@@ -602,9 +602,8 @@ static void test_StringFromGUID2(void)
   ok(len == 0, "len: %d (expected 0)\n", len);
 }
 
-#define test_apt_type(t, q, t_t, t_q) _test_apt_type(t, q, t_t, t_q, __LINE__)
-static void _test_apt_type(APTTYPE expected_type, APTTYPEQUALIFIER expected_qualifier, BOOL todo_type,
-        BOOL todo_qualifier, int line)
+#define test_apt_type(t, q) _test_apt_type(t, q, __LINE__)
+static void _test_apt_type(APTTYPE expected_type, APTTYPEQUALIFIER expected_qualifier, int line)
 {
     APTTYPEQUALIFIER qualifier = ~0u;
     APTTYPE type = ~0u;
@@ -615,9 +614,7 @@ static void _test_apt_type(APTTYPE expected_type, APTTYPEQUALIFIER expected_qual
 
     hr = pCoGetApartmentType(&type, &qualifier);
     ok_(__FILE__, line)(hr == S_OK || hr == CO_E_NOTINITIALIZED, "Unexpected return code: 0x%08x\n", hr);
-todo_wine_if(todo_type)
     ok_(__FILE__, line)(type == expected_type, "Wrong apartment type %d, expected %d\n", type, expected_type);
-todo_wine_if(todo_qualifier)
     ok_(__FILE__, line)(qualifier == expected_qualifier, "Wrong apartment qualifier %d, expected %d\n", qualifier,
         expected_qualifier);
 }
@@ -660,7 +657,7 @@ static void test_CoCreateInstance(void)
     hr = CoCreateInstance(rclsid, NULL, CLSCTX_INPROC_SERVER, &IID_IUnknown, (void **)&pUnk);
     ok(hr == CO_E_NOTINITIALIZED, "CoCreateInstance should have returned CO_E_NOTINITIALIZED instead of 0x%08x\n", hr);
 
-    test_apt_type(APTTYPE_CURRENT, APTTYPEQUALIFIER_NONE, FALSE, FALSE);
+    test_apt_type(APTTYPE_CURRENT, APTTYPEQUALIFIER_NONE);
 }
 
 static void test_CoGetClassObject(void)
@@ -682,7 +679,7 @@ static void test_CoGetClassObject(void)
        broken(hr == CO_E_NOTINITIALIZED), /* win9x */
        "CoGetClassObject should have returned E_INVALIDARG instead of 0x%08x\n", hr);
 
-    test_apt_type(APTTYPE_CURRENT, APTTYPEQUALIFIER_NONE, FALSE, FALSE);
+    test_apt_type(APTTYPE_CURRENT, APTTYPEQUALIFIER_NONE);
 
     if (!pRegOverridePredefKey)
     {
@@ -1797,7 +1794,7 @@ static void test_CoGetObjectContext(void)
 
     pCoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
-    test_apt_type(APTTYPE_MAINSTA, APTTYPEQUALIFIER_NONE, FALSE, FALSE);
+    test_apt_type(APTTYPE_MAINSTA, APTTYPEQUALIFIER_NONE);
 
     hr = pCoGetObjectContext(&IID_IComThreadingInfo, (void **)&pComThreadingInfo);
     ok_ole_success(hr, "CoGetObjectContext");
@@ -1993,11 +1990,11 @@ static void test_CoGetContextToken(void)
     ok(hr == CO_E_NOTINITIALIZED, "Expected CO_E_NOTINITIALIZED, got 0x%08x\n", hr);
     ok(token == 0xdeadbeef, "Expected 0, got 0x%lx\n", token);
 
-    test_apt_type(APTTYPE_CURRENT, APTTYPEQUALIFIER_NONE, FALSE, FALSE);
+    test_apt_type(APTTYPE_CURRENT, APTTYPEQUALIFIER_NONE);
 
     CoInitialize(NULL);
 
-    test_apt_type(APTTYPE_MAINSTA, APTTYPEQUALIFIER_NONE, FALSE, FALSE);
+    test_apt_type(APTTYPE_MAINSTA, APTTYPEQUALIFIER_NONE);
 
     hr = pCoGetContextToken(NULL);
     ok(hr == E_POINTER, "Expected E_POINTER, got 0x%08x\n", hr);
@@ -3001,14 +2998,36 @@ static void test_CoWaitForMultipleHandles(void)
     ok(index == WAIT_OBJECT_0, "WaitForSingleObject failed\n");
     CloseHandle(thread);
 
+    CoUninitialize();
+
+    /* If COM was not initialized, messages are neither pumped nor peeked at */
+    PostMessageA(hWnd, WM_DDE_FIRST, 0, 0);
+    hr = CoWaitForMultipleHandles(0, 100, 2, handles, &index);
+    ok(hr == RPC_S_CALLPENDING, "got %#x\n", hr);
+    success = MsgWaitForMultipleObjectsEx(0, NULL, 2, QS_ALLPOSTMESSAGE, MWMO_ALERTABLE);
+    ok(success == 0, "MsgWaitForMultipleObjects returned %x\n", success);
+    success = PeekMessageA(&msg, hWnd, WM_DDE_FIRST, WM_DDE_FIRST, PM_REMOVE);
+    ok(success, "PeekMessage failed: %u\n", GetLastError());
+
+    /* same in an MTA */
+    CoInitializeEx(NULL, COINIT_MULTITHREADED);
+
+    PostMessageA(hWnd, WM_DDE_FIRST, 0, 0);
+    hr = CoWaitForMultipleHandles(0, 100, 2, handles, &index);
+    ok(hr == RPC_S_CALLPENDING, "got %#x\n", hr);
+    success = MsgWaitForMultipleObjectsEx(0, NULL, 2, QS_ALLPOSTMESSAGE, MWMO_ALERTABLE);
+    ok(success == 0, "MsgWaitForMultipleObjects returned %x\n", success);
+    success = PeekMessageA(&msg, hWnd, WM_DDE_FIRST, WM_DDE_FIRST, PM_REMOVE);
+    ok(success, "PeekMessage failed: %u\n", GetLastError());
+
+    CoUninitialize();
+
     CloseHandle(handles[0]);
     CloseHandle(handles[1]);
     DestroyWindow(hWnd);
 
     success = UnregisterClassA(cls_name, GetModuleHandleA(0));
     ok(success, "UnregisterClass failed %u\n", GetLastError());
-
-    CoUninitialize();
 }
 
 static void test_CoGetMalloc(void)
@@ -3701,9 +3720,11 @@ static DWORD CALLBACK implicit_mta_proc(void *param)
     IComThreadingInfo *threading_info;
     ULONG_PTR token;
     IUnknown *unk;
+    DWORD cookie;
+    CLSID clsid;
     HRESULT hr;
 
-    test_apt_type(APTTYPE_MTA, APTTYPEQUALIFIER_IMPLICIT_MTA, TRUE, TRUE);
+    test_apt_type(APTTYPE_MTA, APTTYPEQUALIFIER_IMPLICIT_MTA);
 
     hr = CoCreateInstance(&CLSID_InternetZoneManager, NULL, CLSCTX_INPROC_SERVER, &IID_IUnknown, (void **)&unk);
     ok_ole_success(hr, "CoCreateInstance");
@@ -3719,6 +3740,28 @@ static DWORD CALLBACK implicit_mta_proc(void *param)
 
     hr = CoGetContextToken(&token);
     ok_ole_success(hr, "CoGetContextToken");
+
+    hr = CoRegisterPSClsid(&IID_IWineTest, &CLSID_WineTestPSFactoryBuffer);
+    ok_ole_success(hr, "CoRegisterPSClsid");
+
+    hr = CoGetPSClsid(&IID_IClassFactory, &clsid);
+    ok_ole_success(hr, "CoGetPSClsid");
+
+    hr = CoRegisterClassObject(&CLSID_WineOOPTest, (IUnknown *)&Test_ClassFactory,
+                               CLSCTX_INPROC_SERVER, REGCLS_SINGLEUSE, &cookie);
+    ok_ole_success(hr, "CoRegisterClassObject");
+
+    hr = CoRevokeClassObject(cookie);
+    ok_ole_success(hr, "CoRevokeClassObject");
+
+    hr = CoRegisterMessageFilter(NULL, NULL);
+    ok(hr == CO_E_NOT_SUPPORTED, "got %#x\n", hr);
+
+    hr = CoLockObjectExternal((IUnknown *)&Test_Unknown, TRUE, TRUE);
+    ok_ole_success(hr, "CoLockObjectExternal");
+
+    hr = CoDisconnectObject((IUnknown *)&Test_Unknown, 0);
+    ok_ole_success(hr, "CoDisconnectObject");
 
     return 0;
 }
