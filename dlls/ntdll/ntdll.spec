@@ -3,6 +3,7 @@
 #if you change a Nt.. function DON'T FORGET to change the
 #Zw one too.
 
+@ stdcall ApiSetQueryApiSetPresence(ptr ptr)
 @ stub CsrAllocateCaptureBuffer
 @ stub CsrAllocateCapturePointer
 @ stub CsrAllocateMessagePointer
@@ -83,6 +84,7 @@
 @ stdcall LdrProcessRelocationBlock(ptr long ptr long)
 @ stdcall LdrQueryImageFileExecutionOptions(ptr wstr long ptr long ptr)
 @ stdcall LdrQueryProcessModuleInformation(ptr long ptr)
+@ stdcall LdrRegisterDllNotification(long ptr long ptr)
 @ stdcall LdrResolveDelayLoadedAPI(ptr ptr ptr ptr ptr long)
 @ stub LdrSetAppCompatDllRedirectionCallback
 @ stub LdrSetDllManifestProber
@@ -91,6 +93,7 @@
 @ stub LdrUnloadAlternateResourceModule
 @ stdcall LdrUnloadDll(ptr)
 @ stdcall LdrUnlockLoaderLock(long long)
+@ stdcall LdrUnregisterDllNotification(ptr)
 @ stub LdrVerifyImageMatchesChecksum
 @ extern NlsAnsiCodePage
 @ extern NlsMbCodePageTag
@@ -128,7 +131,7 @@
 @ stdcall NtCompleteConnectPort(ptr)
 # @ stub NtCompressKey
 @ stdcall NtConnectPort(ptr ptr ptr ptr ptr ptr ptr ptr)
-@ stub NtContinue
+@ stdcall NtContinue(ptr long)
 # @ stub NtCreateDebugObject
 @ stdcall NtCreateDirectoryObject(ptr long ptr)
 @ stdcall NtCreateEvent(ptr long ptr long long)
@@ -176,7 +179,7 @@
 # @ stub NtEnumerateSystemEnvironmentValuesEx
 @ stdcall NtEnumerateValueKey(long long long ptr long ptr)
 @ stub NtExtendSection
-# @ stub NtFilterToken
+@ stdcall NtFilterToken(long long ptr ptr ptr ptr)
 @ stdcall NtFindAtom(ptr long ptr)
 @ stdcall NtFlushBuffersFile(long ptr)
 @ stdcall NtFlushInstructionCache(long ptr long)
@@ -672,6 +675,7 @@
 # @ stub RtlGetSetBootStatusData
 @ stdcall RtlGetThreadErrorMode()
 @ stdcall RtlGetUnloadEventTrace()
+@ stdcall RtlGetUnloadEventTraceEx(ptr ptr ptr)
 @ stub RtlGetUserInfoHeap
 @ stdcall RtlGetVersion(ptr)
 @ stub RtlGuidToPropertySetName
@@ -735,7 +739,7 @@
 # @ stub RtlIpv6AddressToStringW
 # @ stub RtlIpv6StringToAddressA
 # @ stub RtlIpv6StringToAddressExA
-# @ stub RtlIpv6StringToAddressExW
+@ stdcall RtlIpv6StringToAddressExW(wstr ptr ptr ptr)
 # @ stub RtlIpv6StringToAddressW
 @ stdcall RtlIsActivationContextActive(ptr)
 @ stdcall RtlIsCriticalSectionLocked(ptr)
@@ -813,6 +817,7 @@
 @ stdcall RtlQueryInformationActivationContext(long long ptr long ptr long ptr)
 @ stub RtlQueryInformationActiveActivationContext
 @ stub RtlQueryInterfaceMemoryStream
+@ stdcall RtlQueryPackageIdentity(long ptr ptr ptr ptr ptr)
 @ stub RtlQueryProcessBackTraceInformation
 @ stdcall RtlQueryProcessDebugInformation(long long ptr)
 @ stub RtlQueryProcessHeapInformation
@@ -1058,7 +1063,7 @@
 @ stdcall -private ZwCompleteConnectPort(ptr) NtCompleteConnectPort
 # @ stub ZwCompressKey
 @ stdcall -private ZwConnectPort(ptr ptr ptr ptr ptr ptr ptr ptr) NtConnectPort
-@ stub ZwContinue
+@ stdcall -private ZwContinue(ptr long) NtContinue
 # @ stub ZwCreateDebugObject
 @ stdcall -private ZwCreateDirectoryObject(ptr long ptr) NtCreateDirectoryObject
 @ stdcall -private ZwCreateEvent(ptr long ptr long long) NtCreateEvent
@@ -1475,6 +1480,7 @@
 
 # Server interface
 @ cdecl -norelay wine_server_call(ptr)
+@ cdecl wine_server_close_fds_by_type(long)
 @ cdecl wine_server_fd_to_handle(long long long ptr)
 @ cdecl wine_server_handle_to_fd(long long ptr ptr)
 @ cdecl wine_server_release_fd(long long)
@@ -1484,8 +1490,12 @@
 # Virtual memory
 @ cdecl __wine_locked_recvmsg(long ptr long)
 
+# Token
+@ cdecl __wine_create_default_token(long)
+
 # Version
 @ cdecl wine_get_version() NTDLL_wine_get_version
+@ cdecl wine_get_patches() NTDLL_wine_get_patches
 @ cdecl wine_get_build_id() NTDLL_wine_get_build_id
 @ cdecl wine_get_host_version(ptr ptr) NTDLL_wine_get_host_version
 
@@ -1498,3 +1508,6 @@
 # Filesystem
 @ cdecl wine_nt_to_unix_file_name(ptr ptr long long)
 @ cdecl wine_unix_to_nt_file_name(ptr ptr)
+
+# User shared data
+@ cdecl __wine_user_shared_data()

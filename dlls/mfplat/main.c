@@ -405,7 +405,7 @@ HRESULT WINAPI MFTUnregister(CLSID clsid)
 HRESULT WINAPI MFStartup(ULONG version, DWORD flags)
 {
     FIXME("(%u, %u): stub\n", version, flags);
-    return MF_E_BAD_STARTUP_VERSION;
+    return S_OK;
 }
 
 /***********************************************************************

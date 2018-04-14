@@ -1458,8 +1458,9 @@ static void set_quad_color(struct d3d11_test_context *context, const struct vec4
             (ID3D11Resource *)context->ps_cb, 0, NULL, color, 0, 0);
 }
 
-#define draw_color_quad(context, color) draw_color_quad_(__LINE__, context, color)
-static void draw_color_quad_(unsigned int line, struct d3d11_test_context *context, const struct vec4 *color)
+#define draw_color_quad(context, color) draw_color_quad_(__LINE__, context, color, 0.0)
+#define draw_color_quad_z(context, color, z) draw_color_quad_(__LINE__, context, color, z)
+static void draw_color_quad_(unsigned int line, struct d3d11_test_context *context, const struct vec4 *color, float z)
 {
     static const DWORD ps_color_code[] =
     {
@@ -1501,7 +1502,7 @@ static void draw_color_quad_(unsigned int line, struct d3d11_test_context *conte
 
     set_quad_color(context, color);
 
-    draw_quad_(line, context);
+    draw_quad_z_(line, context, z);
 }
 
 static void test_create_device(void)
@@ -1705,11 +1706,23 @@ static void test_create_device(void)
     swapchain_desc.OutputWindow = NULL;
     hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, NULL, 0, D3D11_SDK_VERSION,
             &swapchain_desc, &swapchain, &device, &feature_level, &immediate_context);
-    ok(hr == DXGI_ERROR_INVALID_CALL, "D3D11CreateDeviceAndSwapChain returned %#x.\n", hr);
-    ok(!swapchain, "Got unexpected swapchain pointer %p.\n", swapchain);
-    ok(!device, "Got unexpected device pointer %p.\n", device);
-    ok(!feature_level, "Got unexpected feature level %#x.\n", feature_level);
-    ok(!immediate_context, "Got unexpected immediate context pointer %p.\n", immediate_context);
+    todo_wine ok(hr == DXGI_ERROR_INVALID_CALL, "D3D11CreateDeviceAndSwapChain returned %#x.\n", hr);
+    if (SUCCEEDED(hr))
+    {
+        refcount = IDXGISwapChain_Release(swapchain);
+        ok(!refcount, "Swapchain has %u references left.\n", refcount);
+        refcount = ID3D11DeviceContext_Release(immediate_context);
+        ok(!refcount, "Immediate context has %u references left.\n", refcount);
+        refcount = ID3D11Device_Release(device);
+        ok(!refcount, "Device has %u references left.\n", refcount);
+    }
+    else
+    {
+        ok(!swapchain, "Got unexpected swapchain pointer %p.\n", swapchain);
+        ok(!device, "Got unexpected device pointer %p.\n", device);
+        ok(!feature_level, "Got unexpected feature level %#x.\n", feature_level);
+        ok(!immediate_context, "Got unexpected immediate context pointer %p.\n", immediate_context);
+    }
 
     swapchain = (IDXGISwapChain *)0xdeadbeef;
     device = (ID3D11Device *)0xdeadbeef;
@@ -5006,8 +5019,8 @@ static void test_create_query(void)
         {D3D11_QUERY_TIMESTAMP_DISJOINT,            D3D_FEATURE_LEVEL_10_0, FALSE, FALSE, FALSE},
         {D3D11_QUERY_PIPELINE_STATISTICS,           D3D_FEATURE_LEVEL_10_0, FALSE, FALSE, FALSE},
         {D3D11_QUERY_OCCLUSION_PREDICATE,           D3D_FEATURE_LEVEL_10_0, TRUE,  TRUE,  FALSE},
-        {D3D11_QUERY_SO_STATISTICS,                 D3D_FEATURE_LEVEL_10_0, FALSE, FALSE, TRUE},
-        {D3D11_QUERY_SO_OVERFLOW_PREDICATE,         D3D_FEATURE_LEVEL_10_0, TRUE,  TRUE,  TRUE},
+        {D3D11_QUERY_SO_STATISTICS,                 D3D_FEATURE_LEVEL_10_0, FALSE, FALSE, FALSE},
+        {D3D11_QUERY_SO_OVERFLOW_PREDICATE,         D3D_FEATURE_LEVEL_10_0, TRUE,  TRUE,  FALSE},
         {D3D11_QUERY_SO_STATISTICS_STREAM0,         D3D_FEATURE_LEVEL_11_0, FALSE, FALSE, FALSE},
         {D3D11_QUERY_SO_OVERFLOW_PREDICATE_STREAM0, D3D_FEATURE_LEVEL_11_0, TRUE,  FALSE, TRUE},
         {D3D11_QUERY_SO_STATISTICS_STREAM1,         D3D_FEATURE_LEVEL_11_0, FALSE, FALSE, FALSE},
@@ -17612,6 +17625,248 @@ static void test_stencil_separate(void)
     release_test_context(&test_context);
 }
 
+static void test_depth_separate(void)
+{
+    struct d3d11_test_context test_context;
+    D3D11_TEXTURE2D_DESC texture_desc;
+    D3D11_DEPTH_STENCIL_DESC ds_desc;
+    ID3D11DepthStencilState *ds_state;
+    ID3D11DepthStencilView *ds_view;
+    D3D11_RASTERIZER_DESC rs_desc;
+    ID3D11DeviceContext *context;
+    struct resource_readback rb;
+    ID3D11RasterizerState *rs;
+    ID3D11Texture2D *texture;
+    ID3D11Device *device;
+    D3D11_VIEWPORT vp;
+    DWORD color;
+    HRESULT hr;
+
+    static const float red[] = {1.0f, 0.0f, 0.0f, 1.0f};
+    static const struct vec4 green = {0.0f, 1.0f, 0.0f, 1.0f};
+    static const struct vec4 blue = {0.0f, 0.0f, 1.0f, 1.0f};
+    static const struct vec4 white = {1.0f, 1.0f, 1.0f, 1.0f};
+    static const DWORD green_d = 0xff00ff00;
+    static const DWORD blue_d = 0xffff0000;
+    static const DWORD red_d = 0xff0000ff;
+    static const DWORD white_d = 0xffffffff;
+
+    if (!init_test_context(&test_context, NULL))
+        return;
+
+    device = test_context.device;
+    context = test_context.immediate_context;
+
+    texture_desc.Width = 640;
+    texture_desc.Height = 480;
+    texture_desc.MipLevels = 1;
+    texture_desc.ArraySize = 1;
+    texture_desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    texture_desc.SampleDesc.Count = 1;
+    texture_desc.SampleDesc.Quality = 0;
+    texture_desc.Usage = D3D11_USAGE_DEFAULT;
+    texture_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    texture_desc.CPUAccessFlags = 0;
+    texture_desc.MiscFlags = 0;
+    hr = ID3D11Device_CreateTexture2D(device, &texture_desc, NULL, &texture);
+    ok(SUCCEEDED(hr), "Failed to create texture, hr %#x.\n", hr);
+    hr = ID3D11Device_CreateDepthStencilView(device, (ID3D11Resource *)texture, NULL, &ds_view);
+    ok(SUCCEEDED(hr), "Failed to create depth stencil view, hr %#x.\n", hr);
+
+    ds_desc.DepthEnable = TRUE;
+    ds_desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    ds_desc.DepthFunc = D3D11_COMPARISON_LESS;
+    ds_desc.StencilEnable = FALSE;
+    ds_desc.StencilReadMask = D3D11_DEFAULT_STENCIL_READ_MASK;
+    ds_desc.StencilWriteMask = D3D11_DEFAULT_STENCIL_WRITE_MASK;
+    ds_desc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_ZERO;
+    ds_desc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_ZERO;
+    ds_desc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_ZERO;
+    ds_desc.FrontFace.StencilFunc = D3D11_COMPARISON_NEVER;
+    ds_desc.BackFace.StencilFailOp = D3D11_STENCIL_OP_ZERO;
+    ds_desc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_ZERO;
+    ds_desc.BackFace.StencilPassOp = D3D11_STENCIL_OP_ZERO;
+    ds_desc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+    hr = ID3D11Device_CreateDepthStencilState(device, &ds_desc, &ds_state);
+    ok(SUCCEEDED(hr), "Failed to create depth stencil state, hr %#x.\n", hr);
+
+    rs_desc.FillMode = D3D11_FILL_SOLID;
+    rs_desc.CullMode = D3D11_CULL_NONE;
+    rs_desc.FrontCounterClockwise = FALSE;
+    rs_desc.DepthBias = 0;
+    rs_desc.DepthBiasClamp = 0.0f;
+    rs_desc.SlopeScaledDepthBias = 0.0f;
+    rs_desc.DepthClipEnable = TRUE;
+    rs_desc.ScissorEnable = FALSE;
+    rs_desc.MultisampleEnable = FALSE;
+    rs_desc.AntialiasedLineEnable = FALSE;
+    ID3D11Device_CreateRasterizerState(device, &rs_desc, &rs);
+    ok(SUCCEEDED(hr), "Failed to create rasterizer state, hr %#x.\n", hr);
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    ID3D11DeviceContext_ClearDepthStencilView(context, ds_view, D3D11_CLEAR_DEPTH, 1.1f, 0);
+    ID3D11DeviceContext_OMSetRenderTargets(context, 1, &test_context.backbuffer_rtv, ds_view);
+    ID3D11DeviceContext_OMSetDepthStencilState(context, ds_state, 0);
+    ID3D11DeviceContext_RSSetState(context, rs);
+
+    vp.TopLeftX = 0.0f;
+    vp.TopLeftY = 0.0f;
+    vp.Width = texture_desc.Width;
+    vp.Height = texture_desc.Height;
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 0.7f;
+    ID3D11DeviceContext_RSSetViewports(context, 1, &vp);
+
+    /* simple depth tests */
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    ID3D11DeviceContext_ClearDepthStencilView(context, ds_view, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    draw_color_quad_z(&test_context, &green, 0.0f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, green_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    ID3D11DeviceContext_ClearDepthStencilView(context, ds_view, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    draw_color_quad_z(&test_context, &green, 0.7f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, green_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    ID3D11DeviceContext_ClearDepthStencilView(context, ds_view, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    draw_color_quad_z(&test_context, &green, 0.0f);
+    draw_color_quad_z(&test_context, &blue, 0.0f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, green_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+
+    /* clipped */
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    ID3D11DeviceContext_ClearDepthStencilView(context, ds_view, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    draw_color_quad_z(&test_context, &green, 1.1f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, red_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    ID3D11DeviceContext_ClearDepthStencilView(context, ds_view, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    draw_color_quad_z(&test_context, &green, -0.1f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, red_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+
+    /* clipping disabled */
+    ID3D11RasterizerState_Release(rs);
+    rs_desc.DepthClipEnable = FALSE;
+    ID3D11Device_CreateRasterizerState(device, &rs_desc, &rs);
+    ok(SUCCEEDED(hr), "Failed to create rasterizer state, hr %#x.\n", hr);
+    ID3D11DeviceContext_RSSetState(context, rs);
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    ID3D11DeviceContext_ClearDepthStencilView(context, ds_view, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    draw_color_quad_z(&test_context, &green, 1.1f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, green_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    ID3D11DeviceContext_ClearDepthStencilView(context, ds_view, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    draw_color_quad_z(&test_context, &green, -0.1f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, green_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+
+    /* depth bias */
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    ID3D11DeviceContext_ClearDepthStencilView(context, ds_view, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    draw_color_quad_z(&test_context, &green, 0.5f);
+    ID3D11RasterizerState_Release(rs);
+    rs_desc.DepthClipEnable = TRUE;
+    rs_desc.DepthBias = -100000;
+    ID3D11Device_CreateRasterizerState(device, &rs_desc, &rs);
+    ok(SUCCEEDED(hr), "Failed to create rasterizer state, hr %#x.\n", hr);
+    ID3D11DeviceContext_RSSetState(context, rs);
+    draw_color_quad_z(&test_context, &blue, 0.5f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, blue_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+    ID3D11RasterizerState_Release(rs);
+    rs_desc.DepthBias = -100005;
+    ID3D11Device_CreateRasterizerState(device, &rs_desc, &rs);
+    ok(SUCCEEDED(hr), "Failed to create rasterizer state, hr %#x.\n", hr);
+    ID3D11DeviceContext_RSSetState(context, rs);
+    draw_color_quad_z(&test_context, &white, 0.5f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, white_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+    ID3D11RasterizerState_Release(rs);
+    rs_desc.DepthBias = -99995;
+    ID3D11Device_CreateRasterizerState(device, &rs_desc, &rs);
+    ok(SUCCEEDED(hr), "Failed to create rasterizer state, hr %#x.\n", hr);
+    ID3D11DeviceContext_RSSetState(context, rs);
+    draw_color_quad_z(&test_context, &green, 0.5f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, white_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    ID3D11DeviceContext_ClearDepthStencilView(context, ds_view, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    draw_color_quad_z(&test_context, &green, 0.5f);
+    ID3D11RasterizerState_Release(rs);
+
+    rs_desc.DepthClipEnable = TRUE;
+    rs_desc.DepthBias = -100000;
+    ID3D11Device_CreateRasterizerState(device, &rs_desc, &rs);
+    ok(SUCCEEDED(hr), "Failed to create rasterizer state, hr %#x.\n", hr);
+    ID3D11DeviceContext_RSSetState(context, rs);
+    draw_color_quad_z(&test_context, &blue, 0.5f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, blue_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+    ID3D11RasterizerState_Release(rs);
+
+    rs_desc.DepthBias = -100005;
+    rs_desc.DepthBiasClamp = -0.00001f;
+    ID3D11Device_CreateRasterizerState(device, &rs_desc, &rs);
+    ok(SUCCEEDED(hr), "Failed to create rasterizer state, hr %#x.\n", hr);
+    ID3D11DeviceContext_RSSetState(context, rs);
+    draw_color_quad_z(&test_context, &white, 0.5f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, blue_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+    ID3D11RasterizerState_Release(rs);
+
+    rs_desc.DepthBias = -100010;
+    rs_desc.DepthBiasClamp = -1.0f;
+    ID3D11Device_CreateRasterizerState(device, &rs_desc, &rs);
+    ok(SUCCEEDED(hr), "Failed to create rasterizer state, hr %#x.\n", hr);
+    ID3D11DeviceContext_RSSetState(context, rs);
+    draw_color_quad_z(&test_context, &green, 0.5f);
+    get_texture_readback(test_context.backbuffer, 0, &rb);
+    color = get_readback_color(&rb, 320, 240);
+    ok(compare_color(color, green_d, 1), "Got unexpected color 0x%08x.\n", color);
+    release_resource_readback(&rb);
+    ID3D11RasterizerState_Release(rs);
+
+    ID3D11DepthStencilState_Release(ds_state);
+    ID3D11DepthStencilView_Release(ds_view);
+    ID3D11RasterizerState_Release(rs);
+    ID3D11Texture2D_Release(texture);
+    release_test_context(&test_context);
+}
+
 static void test_uav_load(void)
 {
     struct shader
@@ -23974,6 +24229,60 @@ static void test_fractional_viewports(void)
     release_test_context(&test_context);
 }
 
+static void test_negative_viewports(void)
+{
+    struct d3d11_test_context test_context;
+    ID3D11DeviceContext *context;
+    D3D11_VIEWPORT vp;
+    DWORD color;
+
+    static const float red[] = {1.0f, 0.0f, 0.0f, 1.0f};
+    static const struct vec4 white = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    if (!init_test_context(&test_context, NULL))
+        return;
+
+    context = test_context.immediate_context;
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    draw_color_quad(&test_context, &white);
+    color = get_texture_color(test_context.backbuffer, 320, 240);
+    ok(compare_color(color, 0xffffffff, 1), "Got unexpected color 0x%08x.\n", color);
+
+    vp.TopLeftX = -640;
+    vp.TopLeftY = 0;
+    vp.Width    = 640 * 2;
+    vp.Height   = 480;
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    ID3D11DeviceContext_RSSetViewports(context, 1, &vp);
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    draw_color_quad(&test_context, &white);
+    color = get_texture_color(test_context.backbuffer, 320, 240);
+    ok(compare_color(color, 0xffffffff, 1), "Got unexpected color 0x%08x.\n", color);
+
+    vp.Width = 640;
+    ID3D11DeviceContext_RSSetViewports(context, 1, &vp);
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    draw_color_quad(&test_context, &white);
+    color = get_texture_color(test_context.backbuffer, 320, 240);
+    ok(compare_color(color, 0xff0000ff, 1), "Got unexpected color 0x%08x.\n", color);
+
+    vp.Width = 640 + 320;
+    ID3D11DeviceContext_RSSetViewports(context, 1, &vp);
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, test_context.backbuffer_rtv, red);
+    draw_color_quad(&test_context, &white);
+    color = get_texture_color(test_context.backbuffer, 320, 240);
+    ok(compare_color(color, 0xff0000ff, 1), "Got unexpected color 0x%08x.\n", color);
+    color = get_texture_color(test_context.backbuffer, 319, 240);
+    ok(compare_color(color, 0xffffffff, 1), "Got unexpected color 0x%08x.\n", color);
+
+    release_test_context(&test_context);
+}
+
 static void test_early_depth_stencil(void)
 {
     ID3D11DepthStencilState *depth_stencil_state;
@@ -26110,6 +26419,174 @@ todo_wine
     release_test_context(&test_context);
 }
 
+static void test_dual_blending(void)
+{
+    struct d3d11_test_context test_context;
+    D3D11_TEXTURE2D_DESC texture_desc;
+    ID3D11Texture2D *render_target;
+    ID3D11RenderTargetView *rtv[2];
+    ID3D11BlendState *blend_state;
+    ID3D11DeviceContext *context;
+    ID3D11VertexShader *vs;
+    ID3D11PixelShader *ps;
+    D3D11_BLEND_DESC desc;
+    ID3D11Device *device;
+    HRESULT hr;
+
+    static const DWORD vs_code[] =
+    {
+#if 0
+        struct output
+        {
+            float4 position : SV_PoSiTion;
+            float4 color0 : COLOR0;
+            float4 color1 : COLOR1;
+        };
+
+        void main(uint id : SV_VertexID, out output o)
+        {
+            float2 coords = float2((id << 1) & 2, id & 2);
+            o.position = float4(coords * float2(2, -2) + float2(-1, 1), 0, 1);
+            o.color0 = float4(1.0f, 0.0f, 0.0f, 1.0f);
+            o.color1 = float4(0.0f, 1.0f, 0.0f, 1.0f);
+        }
+#endif
+        0x43425844, 0x93c216a1, 0xbaa7e8d4, 0xd5368c6a, 0x4e889e07, 0x00000001, 0x00000224, 0x00000003,
+        0x0000002c, 0x00000060, 0x000000cc, 0x4e475349, 0x0000002c, 0x00000001, 0x00000008, 0x00000020,
+        0x00000000, 0x00000006, 0x00000001, 0x00000000, 0x00000101, 0x565f5653, 0x65747265, 0x00444978,
+        0x4e47534f, 0x00000064, 0x00000003, 0x00000008, 0x00000050, 0x00000000, 0x00000001, 0x00000003,
+        0x00000000, 0x0000000f, 0x0000005c, 0x00000000, 0x00000000, 0x00000003, 0x00000001, 0x0000000f,
+        0x0000005c, 0x00000001, 0x00000000, 0x00000003, 0x00000002, 0x0000000f, 0x505f5653, 0x5469536f,
+        0x006e6f69, 0x4f4c4f43, 0xabab0052, 0x52444853, 0x00000150, 0x00010040, 0x00000054, 0x04000060,
+        0x00101012, 0x00000000, 0x00000006, 0x04000067, 0x001020f2, 0x00000000, 0x00000001, 0x03000065,
+        0x001020f2, 0x00000001, 0x03000065, 0x001020f2, 0x00000002, 0x02000068, 0x00000001, 0x07000029,
+        0x00100012, 0x00000000, 0x0010100a, 0x00000000, 0x00004001, 0x00000001, 0x07000001, 0x00100012,
+        0x00000000, 0x0010000a, 0x00000000, 0x00004001, 0x00000002, 0x07000001, 0x00100042, 0x00000000,
+        0x0010100a, 0x00000000, 0x00004001, 0x00000002, 0x05000056, 0x00100032, 0x00000000, 0x00100086,
+        0x00000000, 0x0f000032, 0x00102032, 0x00000000, 0x00100046, 0x00000000, 0x00004002, 0x40000000,
+        0xc0000000, 0x00000000, 0x00000000, 0x00004002, 0xbf800000, 0x3f800000, 0x00000000, 0x00000000,
+        0x08000036, 0x001020c2, 0x00000000, 0x00004002, 0x00000000, 0x00000000, 0x00000000, 0x3f800000,
+        0x08000036, 0x001020f2, 0x00000001, 0x00004002, 0x3f800000, 0x00000000, 0x00000000, 0x3f800000,
+        0x08000036, 0x001020f2, 0x00000002, 0x00004002, 0x00000000, 0x3f800000, 0x00000000, 0x3f800000,
+        0x0100003e,
+    };
+    static const DWORD ps_code[] =
+    {
+#if 0
+        struct input
+        {
+            float4 position : SV_PoSiTiOn;
+            float4 color1 : COLOR1;
+            float4 color0 : COLOR0;
+        };
+
+        struct output
+        {
+            float4 target0 : SV_Target0;
+            float4 target1 : SV_Target1;
+        };
+
+        void main(const in input i, out output o)
+        {
+            o.target0 = i.color0;
+            o.target1 = i.color1;
+        }
+#endif
+        0x43425844, 0x620ef963, 0xed8f19fe, 0x7b3a0a53, 0x126ce021, 0x00000001, 0x00000150, 0x00000003,
+        0x0000002c, 0x00000098, 0x000000e4, 0x4e475349, 0x00000064, 0x00000003, 0x00000008, 0x00000050,
+        0x00000000, 0x00000001, 0x00000003, 0x00000000, 0x0000000f, 0x0000005c, 0x00000001, 0x00000000,
+        0x00000003, 0x00000001, 0x00000f0f, 0x0000005c, 0x00000000, 0x00000000, 0x00000003, 0x00000002,
+        0x00000f0f, 0x505f5653, 0x5469536f, 0x006e4f69, 0x4f4c4f43, 0xabab0052, 0x4e47534f, 0x00000044,
+        0x00000002, 0x00000008, 0x00000038, 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x0000000f,
+        0x00000038, 0x00000001, 0x00000000, 0x00000003, 0x00000001, 0x0000000f, 0x545f5653, 0x65677261,
+        0xabab0074, 0x52444853, 0x00000064, 0x00000040, 0x00000019, 0x03001062, 0x001010f2, 0x00000001,
+        0x03001062, 0x001010f2, 0x00000002, 0x03000065, 0x001020f2, 0x00000000, 0x03000065, 0x001020f2,
+        0x00000001, 0x05000036, 0x001020f2, 0x00000000, 0x00101e46, 0x00000002, 0x05000036, 0x001020f2,
+        0x00000001, 0x00101e46, 0x00000001, 0x0100003e,
+    };
+
+    static const float white[] = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    if (!init_test_context(&test_context, NULL))
+        return;
+
+    device = test_context.device;
+    context = test_context.immediate_context;
+
+    hr = ID3D11Device_CreateVertexShader(device, vs_code, sizeof(vs_code), NULL, &vs);
+    ok(SUCCEEDED(hr), "Failed to create vertex shader, hr %#x.\n", hr);
+    hr = ID3D11Device_CreatePixelShader(device, ps_code, sizeof(ps_code), NULL, &ps);
+    ok(SUCCEEDED(hr), "Failed to create pixel shader, hr %#x.\n", hr);
+
+    ID3D11Texture2D_GetDesc(test_context.backbuffer, &texture_desc);
+    hr = ID3D11Device_CreateTexture2D(device, &texture_desc, NULL, &render_target);
+    ok(SUCCEEDED(hr), "Failed to create texture, hr %#x.\n", hr);
+
+    rtv[0] = test_context.backbuffer_rtv;
+    hr = ID3D11Device_CreateRenderTargetView(device, (ID3D11Resource *)render_target, NULL, &rtv[1]);
+    ok(SUCCEEDED(hr), "Failed to create render target view, hr %#x.\n", hr);
+
+    ID3D11DeviceContext_VSSetShader(context, vs, NULL, 0);
+    ID3D11DeviceContext_PSSetShader(context, ps, NULL, 0);
+    ID3D11DeviceContext_IASetPrimitiveTopology(context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    ID3D11DeviceContext_OMSetRenderTargets(context, 2, rtv, NULL);
+
+    ID3D11DeviceContext_ClearRenderTargetView(context, rtv[0], white);
+    ID3D11DeviceContext_ClearRenderTargetView(context, rtv[1], white);
+    ID3D11DeviceContext_Draw(context, 3, 0);
+
+    check_texture_color(test_context.backbuffer, 0xff00ff00, 0);
+    check_texture_color(render_target, 0xff0000ff, 0);
+
+    memset(&desc, 0, sizeof(desc));
+    desc.AlphaToCoverageEnable = FALSE;
+    desc.IndependentBlendEnable = FALSE;
+    desc.RenderTarget[0].BlendEnable = TRUE;
+    desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_COLOR;
+    desc.RenderTarget[0].DestBlend = D3D11_BLEND_SRC1_COLOR;
+    desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_SRC_ALPHA;
+    desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_SRC1_ALPHA;
+    desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+    hr = ID3D11Device_CreateBlendState(device, &desc, &blend_state);
+    ok(SUCCEEDED(hr), "Failed to create blend state, hr %#x.\n", hr);
+
+    ID3D11DeviceContext_OMSetBlendState(context, blend_state, NULL, D3D11_DEFAULT_SAMPLE_MASK);
+    ID3D11DeviceContext_ClearRenderTargetView(context, rtv[0], white);
+    ID3D11DeviceContext_ClearRenderTargetView(context, rtv[1], white);
+    ID3D11DeviceContext_Draw(context, 3, 0);
+
+    check_texture_color(test_context.backbuffer, 0xff00ffff, 0);
+    todo_wine check_texture_color(render_target, 0xff0000ff, 0);
+
+    ID3D11BlendState_Release(blend_state);
+
+    desc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+    desc.RenderTarget[0].DestBlend = D3D11_BLEND_ZERO;
+    desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+    hr = ID3D11Device_CreateBlendState(device, &desc, &blend_state);
+    ok(SUCCEEDED(hr), "Failed to create blend state, hr %#x.\n", hr);
+
+    ID3D11DeviceContext_OMSetBlendState(context, blend_state, NULL, D3D11_DEFAULT_SAMPLE_MASK);
+    ID3D11DeviceContext_ClearRenderTargetView(context, rtv[0], white);
+    ID3D11DeviceContext_ClearRenderTargetView(context, rtv[1], white);
+    ID3D11DeviceContext_Draw(context, 3, 0);
+
+    check_texture_color(test_context.backbuffer, 0xff00ff00, 0);
+    check_texture_color(render_target, 0xff0000ff, 0);
+
+    ID3D11BlendState_Release(blend_state);
+
+    ID3D11RenderTargetView_Release(rtv[1]);
+    ID3D11Texture2D_Release(render_target);
+    ID3D11PixelShader_Release(ps);
+    ID3D11VertexShader_Release(vs);
+    release_test_context(&test_context);
+}
+
 START_TEST(d3d11)
 {
     unsigned int argc, i;
@@ -26208,6 +26685,7 @@ START_TEST(d3d11)
     test_shader_input_registers_limits();
     test_unbind_shader_resource_view();
     test_stencil_separate();
+    test_depth_separate();
     test_uav_load();
     test_cs_uav_store();
     test_uav_store_immediate_constant();
@@ -26235,8 +26713,10 @@ START_TEST(d3d11)
     test_gather_c();
     test_depth_bias();
     test_fractional_viewports();
+    test_negative_viewports();
     test_early_depth_stencil();
     test_conservative_depth_output();
+    test_dual_blending();
     test_format_compatibility();
     test_clip_distance();
     test_combined_clip_and_cull_distances();

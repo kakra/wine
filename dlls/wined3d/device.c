@@ -35,6 +35,7 @@
 #include "wined3d_private.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(d3d);
+WINE_DECLARE_DEBUG_CHANNEL(d3d_perf);
 WINE_DECLARE_DEBUG_CHANNEL(winediag);
 
 /* Define the default light parameters as specified by MSDN. */
@@ -392,10 +393,8 @@ void device_clear_render_targets(struct wined3d_device *device, UINT rt_count, c
         }
 
         gl_info->gl_ops.gl.p_glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-        context_invalidate_state(context, STATE_RENDER(WINED3D_RS_COLORWRITEENABLE));
-        context_invalidate_state(context, STATE_RENDER(WINED3D_RS_COLORWRITEENABLE1));
-        context_invalidate_state(context, STATE_RENDER(WINED3D_RS_COLORWRITEENABLE2));
-        context_invalidate_state(context, STATE_RENDER(WINED3D_RS_COLORWRITEENABLE3));
+        for (i = 0; i < MAX_RENDER_TARGETS; ++i)
+            context_invalidate_state(context, STATE_RENDER(WINED3D_RS_COLORWRITE(i)));
         gl_info->gl_ops.gl.p_glClearColor(color->r, color->g, color->b, color->a);
         checkGLcall("glClearColor");
         clear_mask = clear_mask | GL_COLOR_BUFFER_BIT;
@@ -842,6 +841,110 @@ static void destroy_default_samplers(struct wined3d_device *device, struct wined
     device->null_sampler = NULL;
 }
 
+/* Context activation is done by the caller. */
+static void create_buffer_heap(struct wined3d_device *device, struct wined3d_context *context)
+{
+    const struct wined3d_gl_info *gl_info = &device->adapter->gl_info;
+    BOOL use_pba = FALSE;
+    char *env_pba_disable;
+
+    if (!gl_info->supported[ARB_BUFFER_STORAGE])
+    {
+        FIXME_(d3d_perf)("Not using PBA, ARB_buffer_storage unsupported.\n");
+    }
+    else if ((env_pba_disable = getenv("PBA_DISABLE")) && *env_pba_disable != '0')
+    {
+        FIXME("Not using PBA, envvar 'PBA_DISABLE' set.\n");
+    }
+    else
+    {
+        //(Firerat) is it worth initialising an int for vram?
+        unsigned int vram_mb = device->adapter->vram_bytes / 1048576;
+        const char *env_pba_geo_heap = getenv("__PBA_GEO_HEAP");
+        // TODO(acomminos): kill this magic number. perhaps base on vram.
+        unsigned int geo_heap = ( env_pba_geo_heap ? atoi(env_pba_geo_heap) : 512 );
+        const char *env_pba_cb_heap = getenv("__PBA_CB_HEAP");
+        // We choose a constant buffer size of 128MB, the same as NVIDIA claims to
+        // use in their Direct3D driver for discarded constant buffers.
+        unsigned int cb_heap = ( env_pba_cb_heap ? atoi(env_pba_cb_heap) : 128 );
+
+        if (env_pba_geo_heap)
+        {
+            FIXME_(d3d_perf)("geo_heap_size set by envvar __PBA_GEO_HEAP=%s\n",env_pba_geo_heap);
+        }
+        if (env_pba_cb_heap)
+        {
+            FIXME_(d3d_perf)("cb_heap_size set by envvar __PBA_CB_HEAP=%s\n",env_pba_cb_heap);
+        }
+
+        if ( geo_heap + cb_heap > vram_mb )
+        {
+            FIXME_(d3d_perf)("geo_heap + cb_heap ( %dmb + %dmb ) exceeds vram of %dmb. Dropping back to PBA defaults\n", geo_heap, cb_heap, vram_mb);
+            if ( vram_mb <= 640 ) // most users should have plenty of vram, but if not at least try to give them PBA..
+            {
+                //TODO (Firerat) I should probably figure out if using dx10+ ( possible? ), could skip cb_heap if not
+                FIXME_(d3d_perf)("You have low vram(%dmb), making crude guess at reasonable heap sizes for PBA\n", vram_mb);
+                // very crude, using 87.5% of vram
+                geo_heap = vram_mb * 0.75; // 3 quarters of vram
+                cb_heap = vram_mb * 0.125; // 8th of vram, probably too low
+                FIXME_(d3d_perf)("guess expressed as envvars: __PBA_GEO_HEAP=%d __PBA_CB_HEAP=%d\n", geo_heap, cb_heap);
+                //TODO (Firerat) might not be worth messing about here, just fail with note about envvars
+            }
+            else
+            {
+                // should ony get here if user screwed up their pba envvars
+                geo_heap = 512;
+                cb_heap = 128;
+            }
+        }
+        GLsizeiptr geo_heap_size = geo_heap * 1024 * 1024;
+        GLsizeiptr cb_heap_size = cb_heap * 1024 * 1024;
+        GLint ub_alignment;
+        HRESULT hr;
+
+        gl_info->gl_ops.gl.p_glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &ub_alignment);
+
+        // Align constant buffer heap size, in case GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT isn't a power of two (for some reason).
+        cb_heap_size -= cb_heap_size % ub_alignment;
+
+        if (FAILED(hr = wined3d_buffer_heap_create(context, geo_heap_size, 0, TRUE, &device->wo_buffer_heap)))
+        {
+            ERR("Failed to create write-only persistent buffer heap, hr %#x.\n", hr);
+            goto fail;
+        }
+
+        if (cb_heap != 0) // assume user doesn't want a cb_heap , e.g. not dx10+
+        {
+            if (FAILED(hr = wined3d_buffer_heap_create(context, cb_heap_size, ub_alignment, TRUE, &device->cb_buffer_heap)))
+            {
+                ERR("Failed to create persistent buffer heap for constant buffers, hr %#x.\n", hr);
+                goto fail;
+            }
+        }
+        else
+        {
+            FIXME_(d3d_perf)("cb_heap set to 0, this will degrade performance with dx10 and dx11\n");
+        }
+
+        FIXME("Initialized PBA (geo_heap_size: %ld, cb_heap_size: %ld, ub_align: %d)\n", geo_heap_size, cb_heap_size, ub_alignment);
+
+        use_pba = TRUE;
+    }
+
+fail:
+    device->use_pba = use_pba;
+}
+
+/* Context activation is done by the caller. */
+static void destroy_buffer_heap(struct wined3d_device *device, struct wined3d_context *context)
+{
+    if (device->wo_buffer_heap)
+        wined3d_buffer_heap_destroy(device->wo_buffer_heap, context);
+
+    if (device->cb_buffer_heap)
+        wined3d_buffer_heap_destroy(device->cb_buffer_heap, context);
+}
+
 static LONG fullscreen_style(LONG style)
 {
     /* Make sure the window is managed, otherwise we won't get keyboard input. */
@@ -1006,6 +1109,8 @@ static void wined3d_device_delete_opengl_contexts_cs(void *object)
     device->shader_backend->shader_free_private(device);
     destroy_dummy_textures(device, context);
     destroy_default_samplers(device, context);
+    destroy_buffer_heap(device, context);
+
     context_release(context);
 
     while (device->context_count)
@@ -1055,6 +1160,9 @@ static void wined3d_device_create_primary_opengl_context_cs(void *object)
     context = context_acquire(device, target, 0);
     create_dummy_textures(device, context);
     create_default_samplers(device, context);
+
+    create_buffer_heap(device, context);
+
     context_release(context);
 }
 
@@ -1222,6 +1330,7 @@ HRESULT CDECL wined3d_device_uninit_3d(struct wined3d_device *device)
 
     wine_rb_clear(&device->samplers, device_free_sampler, NULL);
 
+    context_set_current(NULL);
     wined3d_device_delete_opengl_contexts(device);
 
     if (device->fb.depth_stencil)
@@ -1304,7 +1413,32 @@ void CDECL wined3d_device_set_multithreaded(struct wined3d_device *device)
 
 UINT CDECL wined3d_device_get_available_texture_mem(const struct wined3d_device *device)
 {
+    /* const struct wined3d_gl_info *gl_info = &device->adapter->gl_info; */
+
     TRACE("device %p.\n", device);
+
+    /* We can not acquire the context unless there is a swapchain. */
+    /*
+    if (device->swapchains && gl_info->supported[NVX_GPU_MEMORY_INFO] &&
+            !wined3d_settings.emulated_textureram)
+    {
+        GLint vram_free_kb;
+        UINT64 vram_free;
+
+        struct wined3d_context *context = context_acquire(device, NULL, 0);
+        gl_info->gl_ops.gl.p_glGetIntegerv(GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX, &vram_free_kb);
+        vram_free = (UINT64)vram_free_kb * 1024;
+        context_release(context);
+
+        TRACE("Total 0x%s bytes. emulation 0x%s left, driver 0x%s left.\n",
+                wine_dbgstr_longlong(device->adapter->vram_bytes),
+                wine_dbgstr_longlong(device->adapter->vram_bytes - device->adapter->vram_bytes_used),
+                wine_dbgstr_longlong(vram_free));
+
+        vram_free = min(vram_free, device->adapter->vram_bytes - device->adapter->vram_bytes_used);
+        return min(UINT_MAX, vram_free);
+    }
+    */
 
     TRACE("Emulating 0x%s bytes. 0x%s used, returning 0x%s left.\n",
             wine_dbgstr_longlong(device->adapter->vram_bytes),
@@ -3507,10 +3641,17 @@ struct wined3d_texture * CDECL wined3d_device_get_texture(const struct wined3d_d
 
 HRESULT CDECL wined3d_device_get_device_caps(const struct wined3d_device *device, WINED3DCAPS *caps)
 {
+    HRESULT hr;
+
     TRACE("device %p, caps %p.\n", device, caps);
 
-    return wined3d_get_device_caps(device->wined3d, device->adapter->ordinal,
+    hr = wined3d_get_device_caps(device->wined3d, device->adapter->ordinal,
             device->create_parms.device_type, caps);
+
+    if (SUCCEEDED(hr) && use_software_vertex_processing(device))
+        caps->MaxVertexBlendMatrixIndex = 255;
+
+    return hr;
 }
 
 HRESULT CDECL wined3d_device_get_display_mode(const struct wined3d_device *device, UINT swapchain_idx,
@@ -3938,30 +4079,14 @@ HRESULT CDECL wined3d_device_validate_device(const struct wined3d_device *device
 
 void CDECL wined3d_device_set_software_vertex_processing(struct wined3d_device *device, BOOL software)
 {
-    static BOOL warned;
-
     TRACE("device %p, software %#x.\n", device, software);
-
-    if (!warned)
-    {
-        FIXME("device %p, software %#x stub!\n", device, software);
-        warned = TRUE;
-    }
 
     device->softwareVertexProcessing = software;
 }
 
 BOOL CDECL wined3d_device_get_software_vertex_processing(const struct wined3d_device *device)
 {
-    static BOOL warned;
-
     TRACE("device %p.\n", device);
-
-    if (!warned)
-    {
-        TRACE("device %p stub!\n", device);
-        warned = TRUE;
-    }
 
     return device->softwareVertexProcessing;
 }
@@ -4018,6 +4143,12 @@ void CDECL wined3d_device_copy_uav_counter(struct wined3d_device *device,
 {
     TRACE("device %p, dst_buffer %p, offset %u, uav %p.\n",
             device, dst_buffer, offset, uav);
+
+    if (offset + sizeof(GLuint) > dst_buffer->resource.size)
+    {
+        WARN("Offset %u too large.\n", offset);
+        return;
+    }
 
     wined3d_cs_emit_copy_uav_counter(device->cs, dst_buffer, offset, uav);
 }
@@ -4294,8 +4425,6 @@ void CDECL wined3d_device_update_sub_resource(struct wined3d_device *device, str
         WARN("Invalid box %s specified.\n", debug_box(box));
         return;
     }
-
-    wined3d_resource_wait_idle(resource);
 
     wined3d_cs_emit_update_sub_resource(device->cs, resource, sub_resource_idx, box, data, row_pitch, depth_pitch);
 }

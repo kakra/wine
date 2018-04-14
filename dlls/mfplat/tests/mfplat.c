@@ -203,7 +203,7 @@ static void test_MFCreateMediaType(void)
     IMFMediaType *mediatype;
 
     hr = MFStartup(MF_VERSION, MFSTARTUP_FULL);
-    todo_wine ok(hr == S_OK, "got 0x%08x\n", hr);
+    ok(hr == S_OK, "got 0x%08x\n", hr);
 
 if(0)
 {
