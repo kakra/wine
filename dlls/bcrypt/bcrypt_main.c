@@ -336,6 +336,12 @@ struct algorithm
     BOOL hmac;
 };
 
+NTSTATUS WINAPI BCryptFinalizeKeyPair(BCRYPT_KEY_HANDLE key, ULONG dwflags)
+{
+    FIXME("%p, %08x - stub\n", key, dwflags);
+    return STATUS_SUCCESS;
+}
+
 NTSTATUS WINAPI BCryptGenerateKeyPair(BCRYPT_ALG_HANDLE algorithm, BCRYPT_KEY_HANDLE *handle, ULONG input_len, ULONG flags)
 {
     FIXME("%p, %p, %u, %08x - stub\n", algorithm, handle, input_len, flags);
