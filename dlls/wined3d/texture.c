@@ -567,6 +567,8 @@ static void wined3d_texture_allocate_gl_mutable_storage(struct wined3d_texture *
     unsigned int level, level_count, layer, layer_count;
     GLsizei width, height, depth;
     GLenum target;
+    GLint gl_format;
+    GLint gl_type;
 
     level_count = texture->level_count;
     if (texture->target == GL_TEXTURE_1D_ARRAY || texture->target == GL_TEXTURE_2D_ARRAY)
@@ -577,6 +579,18 @@ static void wined3d_texture_allocate_gl_mutable_storage(struct wined3d_texture *
     for (layer = 0; layer < layer_count; ++layer)
     {
         target = wined3d_texture_get_sub_resource_target(texture, layer * level_count);
+
+        if (texture->resource.format_flags & WINED3DFMT_FLAG_DECOMPRESS)
+        {
+            gl_internal_format = GL_RGBA8;
+            gl_format = GL_BGRA;
+            gl_type = GL_UNSIGNED_INT_8_8_8_8_REV;
+        }
+        else
+        {
+            gl_format = format->glFormat;
+            gl_type = format->glType;
+        }
 
         for (level = 0; level < level_count; ++level)
         {
@@ -596,19 +610,19 @@ static void wined3d_texture_allocate_gl_mutable_storage(struct wined3d_texture *
                 depth = wined3d_texture_get_level_depth(texture, level);
                 GL_EXTCALL(glTexImage3D(target, level, gl_internal_format, width, height,
                         target == GL_TEXTURE_2D_ARRAY ? texture->layer_count : depth, 0,
-                        format->glFormat, format->glType, NULL));
+                        gl_format, gl_type, NULL));
                 checkGLcall("glTexImage3D");
             }
             else if (target == GL_TEXTURE_1D)
             {
                 gl_info->gl_ops.gl.p_glTexImage1D(target, level, gl_internal_format,
-                        width, 0, format->glFormat, format->glType, NULL);
+                        width, 0, gl_format, gl_type, NULL);
             }
             else
             {
                 gl_info->gl_ops.gl.p_glTexImage2D(target, level, gl_internal_format, width,
                         target == GL_TEXTURE_1D_ARRAY ? texture->layer_count : height, 0,
-                        format->glFormat, format->glType, NULL);
+                        gl_format, gl_type, NULL);
                 checkGLcall("glTexImage2D");
             }
         }
@@ -623,6 +637,9 @@ static void wined3d_texture_allocate_gl_immutable_storage(struct wined3d_texture
     unsigned int samples = wined3d_texture_get_gl_sample_count(texture);
     GLsizei height = wined3d_texture_get_level_pow2_height(texture, 0);
     GLsizei width = wined3d_texture_get_level_pow2_width(texture, 0);
+
+    if (texture->resource.format_flags & WINED3DFMT_FLAG_DECOMPRESS)
+        gl_internal_format = GL_RGBA8;
 
     switch (texture->target)
     {
@@ -1946,6 +1963,34 @@ void wined3d_texture_upload_data(struct wined3d_texture *texture, unsigned int s
     {
         bo.addr += src_box->top * src_row_pitch;
         bo.addr += src_box->left * format->byte_count;
+    }
+
+    if (texture->resource.format_flags & WINED3DFMT_FLAG_DECOMPRESS)
+    {
+        unsigned int dst_row_pitch, dst_slice_pitch;
+        void *src_mem;
+
+        f = *format;
+        format = wined3d_get_format(gl_info, WINED3DFMT_B8G8R8A8_UNORM, WINED3DUSAGE_TEXTURE);
+
+        wined3d_format_calculate_pitch(format, 1, update_w, update_h, &dst_row_pitch, &dst_slice_pitch);
+
+        if (!(converted_mem = heap_calloc(update_d, dst_slice_pitch)))
+        {
+            ERR("Failed to allocate upload buffer.\n");
+            return;
+        }
+        src_mem = context_map_bo_address(context, &bo, src_slice_pitch,
+                GL_PIXEL_UNPACK_BUFFER, WINED3D_MAP_READ);
+        f.decompress(src_mem, converted_mem, src_row_pitch, src_slice_pitch,
+                dst_row_pitch, dst_slice_pitch, update_w, update_h, update_d);
+        context_unmap_bo_address(context, &bo, GL_PIXEL_UNPACK_BUFFER);
+
+        bo.buffer_object = 0;
+        bo.addr = converted_mem;
+        src_row_pitch = dst_row_pitch;
+        src_slice_pitch = dst_slice_pitch;
+        texture->resource.format_flags &= ~WINED3DFMT_FLAG_BLOCKS;
     }
 
     if (format->upload)

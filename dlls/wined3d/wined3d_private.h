@@ -4246,6 +4246,7 @@ extern enum wined3d_format_id pixelformat_for_depth(DWORD depth) DECLSPEC_HIDDEN
 #define WINED3DFMT_FLAG_BLOCKS_NO_VERIFY            0x00100000
 #define WINED3DFMT_FLAG_INTEGER                     0x00200000
 #define WINED3DFMT_FLAG_GEN_MIPMAP                  0x00400000
+#define WINED3DFMT_FLAG_DECOMPRESS                  0x00800000
 
 struct wined3d_rational
 {
@@ -4303,6 +4304,9 @@ struct wined3d_format
             unsigned int dst_row_pitch, unsigned dst_slice_pitch,
             unsigned int width, unsigned int height, unsigned int depth);
     void (*download)(const BYTE *src, BYTE *dst, unsigned int src_row_pitch, unsigned int src_slice_pitch,
+            unsigned int dst_row_pitch, unsigned dst_slice_pitch,
+            unsigned int width, unsigned int height, unsigned int depth);
+    void (*decompress)(const BYTE *src, BYTE *dst, unsigned int src_row_pitch, unsigned int src_slice_pitch,
             unsigned int dst_row_pitch, unsigned dst_slice_pitch,
             unsigned int width, unsigned int height, unsigned int depth);
 
