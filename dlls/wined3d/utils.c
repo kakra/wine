@@ -5854,6 +5854,7 @@ void wined3d_ffp_get_vs_settings(const struct wined3d_context *context,
     const struct wined3d_gl_info *gl_info = context->gl_info;
     const struct wined3d_d3d_info *d3d_info = context->d3d_info;
     unsigned int coord_idx, i;
+    BOOL has_diffuse, has_specular;
 
     memset(settings, 0, sizeof(*settings));
 
@@ -5911,12 +5912,38 @@ void wined3d_ffp_get_vs_settings(const struct wined3d_context *context,
     settings->point_size = state->gl_primitive_type == GL_POINTS;
     settings->per_vertex_point_size = !!(si->use_map & 1u << WINED3D_FFP_PSIZE);
 
-    if (state->render_states[WINED3D_RS_COLORVERTEX] && (si->use_map & (1u << WINED3D_FFP_DIFFUSE)))
+    has_diffuse = si->use_map & (1u << WINED3D_FFP_DIFFUSE);
+    has_specular = si->use_map & (1u << WINED3D_FFP_SPECULAR);
+
+    if (state->render_states[WINED3D_RS_COLORVERTEX] && (has_diffuse || has_specular))
     {
-        settings->diffuse_source = state->render_states[WINED3D_RS_DIFFUSEMATERIALSOURCE];
-        settings->emissive_source = state->render_states[WINED3D_RS_EMISSIVEMATERIALSOURCE];
-        settings->ambient_source = state->render_states[WINED3D_RS_AMBIENTMATERIALSOURCE];
-        settings->specular_source = state->render_states[WINED3D_RS_SPECULARMATERIALSOURCE];
+        if (state->render_states[WINED3D_RS_DIFFUSEMATERIALSOURCE] == WINED3D_MCS_COLOR1 && has_diffuse)
+            settings->diffuse_source = WINED3D_MCS_COLOR1;
+        else if (state->render_states[WINED3D_RS_DIFFUSEMATERIALSOURCE] == WINED3D_MCS_COLOR2 && has_specular)
+            settings->diffuse_source = WINED3D_MCS_COLOR2;
+        else
+            settings->diffuse_source = WINED3D_MCS_MATERIAL;
+
+        if (state->render_states[WINED3D_RS_EMISSIVEMATERIALSOURCE] == WINED3D_MCS_COLOR1 && has_diffuse)
+            settings->emissive_source = WINED3D_MCS_COLOR1;
+        else if (state->render_states[WINED3D_RS_EMISSIVEMATERIALSOURCE] == WINED3D_MCS_COLOR2 && has_specular)
+            settings->emissive_source = WINED3D_MCS_COLOR2;
+        else
+            settings->emissive_source = WINED3D_MCS_MATERIAL;
+
+        if (state->render_states[WINED3D_RS_AMBIENTMATERIALSOURCE] == WINED3D_MCS_COLOR1 && has_diffuse)
+            settings->ambient_source = WINED3D_MCS_COLOR1;
+        else if (state->render_states[WINED3D_RS_AMBIENTMATERIALSOURCE] == WINED3D_MCS_COLOR2 && has_specular)
+            settings->ambient_source = WINED3D_MCS_COLOR2;
+        else
+            settings->ambient_source = WINED3D_MCS_MATERIAL;
+
+        if (state->render_states[WINED3D_RS_SPECULARMATERIALSOURCE] == WINED3D_MCS_COLOR1 && has_diffuse)
+            settings->specular_source = WINED3D_MCS_COLOR1;
+        else if (state->render_states[WINED3D_RS_SPECULARMATERIALSOURCE] == WINED3D_MCS_COLOR2 && has_specular)
+            settings->specular_source = WINED3D_MCS_COLOR2;
+        else
+            settings->specular_source = WINED3D_MCS_MATERIAL;
     }
     else
     {
