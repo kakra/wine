@@ -614,11 +614,12 @@ NTSTATUS WINAPI hid_internal_dispatch(DEVICE_OBJECT *device, IRP *irp)
     return status;
 }
 
-void process_hid_report(DEVICE_OBJECT *device, BYTE *report, DWORD length)
+void process_hid_report(DEVICE_OBJECT *device, BYTE *report, DWORD length, BOOL warn_multi_events)
 {
     struct device_extension *ext = (struct device_extension*)device->DeviceExtension;
     IRP *irp;
     LIST_ENTRY *entry;
+    static int overwrite_reported;
 
     if (!length || !report)
         return;
@@ -641,8 +642,18 @@ void process_hid_report(DEVICE_OBJECT *device, BYTE *report, DWORD length)
             ext->buffer_size = length;
     }
 
-    if (!ext->last_report_read)
-        ERR_(hid_report)("Device reports coming in too fast, last report not read yet!\n");
+    /*
+     * Device reports may come in faster than our consumers could possibly
+     * read them, this is especially true for multi-axis events: When you move
+     * a stick across its range, it will always generate at least two events,
+     * one for the x axis, and one for the y axis. This is not really an error
+     * situation, so let's report this situation only once at most. If we
+     * already know the multi-event situation, let's skip logging this
+     * completely: We won't loose any information anyway because the report
+     * contains a complete device state and only axis positions were updated.
+     */
+    if (warn_multi_events && !ext->last_report_read && !overwrite_reported++)
+        WARN_(hid_report)("Device reports coming in too fast, last report not read yet!\n");
 
     memcpy(ext->last_report, report, length);
     ext->last_report_size = length;
@@ -659,6 +670,7 @@ void process_hid_report(DEVICE_OBJECT *device, BYTE *report, DWORD length)
             irp->UserBuffer, &irp->IoStatus.Information);
         ext->last_report_read = TRUE;
         IoCompleteRequest(irp, IO_NO_INCREMENT);
+        overwrite_reported = 0;
     }
     LeaveCriticalSection(&ext->report_cs);
 }

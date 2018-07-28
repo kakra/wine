@@ -135,7 +135,7 @@ static void handle_IOHIDDeviceIOHIDReportCallback(void *context,
         uint32_t reportID, uint8_t *report, CFIndex report_length)
 {
     DEVICE_OBJECT *device = (DEVICE_OBJECT*)context;
-    process_hid_report(device, report, report_length);
+    process_hid_report(device, report, report_length, TRUE);
 }
 
 static int compare_platform_device(DEVICE_OBJECT *device, void *platform_dev)

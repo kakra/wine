@@ -683,7 +683,7 @@ static BOOL set_report_from_event(SDL_Event *event)
 
             set_button_value(ie->button, ie->state, private->report_buffer);
 
-            process_hid_report(device, private->report_buffer, private->buffer_length);
+            process_hid_report(device, private->report_buffer, private->buffer_length, TRUE);
             break;
         }
         case SDL_JOYAXISMOTION:
@@ -693,7 +693,7 @@ static BOOL set_report_from_event(SDL_Event *event)
             if (ie->axis < 6)
             {
                 set_axis_value(private, ie->axis, ie->value);
-                process_hid_report(device, private->report_buffer, private->buffer_length);
+                process_hid_report(device, private->report_buffer, private->buffer_length, FALSE);
             }
             break;
         }
@@ -702,7 +702,7 @@ static BOOL set_report_from_event(SDL_Event *event)
             SDL_JoyBallEvent *ie = &event->jball;
 
             set_ball_value(private, ie->ball, ie->xrel, ie->yrel);
-            process_hid_report(device, private->report_buffer, private->buffer_length);
+            process_hid_report(device, private->report_buffer, private->buffer_length, FALSE);
             break;
         }
         case SDL_JOYHATMOTION:
@@ -710,7 +710,7 @@ static BOOL set_report_from_event(SDL_Event *event)
             SDL_JoyHatEvent *ie = &event->jhat;
 
             set_hat_value(private, ie->hat, ie->value);
-            process_hid_report(device, private->report_buffer, private->buffer_length);
+            process_hid_report(device, private->report_buffer, private->buffer_length, TRUE);
             break;
         }
         default:
@@ -765,7 +765,7 @@ static BOOL set_mapped_report_from_event(SDL_Event *event)
             if (usage >= 0)
             {
                 set_button_value(usage, ie->state, private->report_buffer);
-                process_hid_report(device, private->report_buffer, private->buffer_length);
+                process_hid_report(device, private->report_buffer, private->buffer_length, TRUE);
             }
             break;
         }
@@ -774,7 +774,7 @@ static BOOL set_mapped_report_from_event(SDL_Event *event)
             SDL_ControllerAxisEvent *ie = &event->caxis;
 
             set_axis_value(private, ie->axis, ie->value);
-            process_hid_report(device, private->report_buffer, private->buffer_length);
+            process_hid_report(device, private->report_buffer, private->buffer_length, FALSE);
             break;
         }
         default:
