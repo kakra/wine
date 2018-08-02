@@ -224,6 +224,11 @@ static struct object *create_file( struct fd *root, const char *nameptr, data_si
     default:                set_error( STATUS_INVALID_PARAMETER ); goto done;
     }
 
+#ifdef O_DIRECT
+    if (options & FILE_WRITE_THROUGH)
+        flags |= O_DIRECT;
+#endif
+
     if (sd)
     {
         const SID *owner = sd_get_owner( sd );
