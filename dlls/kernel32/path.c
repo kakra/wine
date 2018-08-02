@@ -1341,6 +1341,7 @@ BOOL WINAPI MoveFileWithProgressW( LPCWSTR source, LPCWSTR dest,
     NTSTATUS status;
     HANDLE source_handle = 0, dest_handle = 0;
     ANSI_STRING source_unix, dest_unix;
+    DWORD options;
 
     TRACE("(%s,%s,%p,%p,%04x)\n",
           debugstr_w(source), debugstr_w(dest), fnProgress, param, flag );
@@ -1350,9 +1351,6 @@ BOOL WINAPI MoveFileWithProgressW( LPCWSTR source, LPCWSTR dest,
 
     if (!dest)
         return DeleteFileW( source );
-
-    if (flag & MOVEFILE_WRITE_THROUGH)
-        FIXME("MOVEFILE_WRITE_THROUGH unimplemented\n");
 
     /* check if we are allowed to rename the source */
 
@@ -1395,9 +1393,13 @@ BOOL WINAPI MoveFileWithProgressW( LPCWSTR source, LPCWSTR dest,
         SetLastError( ERROR_PATH_NOT_FOUND );
         goto error;
     }
+
+    options = FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT;
+    if (flag & MOVEFILE_WRITE_THROUGH)
+        options |= FILE_WRITE_THROUGH;
     status = NtOpenFile( &dest_handle, GENERIC_READ | GENERIC_WRITE | SYNCHRONIZE, &attr, &io,
                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                         FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT );
+                         options );
     if (status == STATUS_SUCCESS)  /* destination exists */
     {
         if (!(flag & MOVEFILE_REPLACE_EXISTING))
