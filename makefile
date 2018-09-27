@@ -2,7 +2,7 @@
 
 PROTON_DIST := "dist-$(shell git describe --tag)"
 
-CCFLAGS := -O3 -march=native -fomit-frame-pointer
+CCFLAGS := -Os -march=native -fomit-frame-pointer
 
 CFLAGS += $(CCFLAGS)
 VKD3D_CFLAGS := -I$(shell pwd)/vendor/vkd3d/include
