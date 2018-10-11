@@ -1265,7 +1265,7 @@ DWORD apartment_release(struct apartment *apt)
     return ret;
 }
 
-/* The given OXID must be local to this process: 
+/* The given OXID must be local to this process:
  *
  * The ref parameter is here mostly to ensure people remember that
  * they get one, you should normally take a ref for thread safety.
@@ -2563,7 +2563,7 @@ static HRESULT get_ps_clsid_from_registry(const WCHAR* path, REGSAM access, CLSI
  * PARAMS
  *  riid   [I] Interface whose proxy/stub CLSID is to be returned.
  *  pclsid [O] Where to store returned proxy/stub CLSID.
- * 
+ *
  * RETURNS
  *   S_OK
  *   E_OUTOFMEMORY
@@ -2662,7 +2662,7 @@ HRESULT WINAPI CoGetPSClsid(REFIID riid, CLSID *pclsid)
  * PARAMS
  *  riid   [I] Interface whose proxy/stub CLSID is to be registered.
  *  rclsid [I] CLSID of the proxy/stub.
- * 
+ *
  * RETURNS
  *   Success: S_OK
  *   Failure: E_OUTOFMEMORY
@@ -4028,10 +4028,19 @@ HRESULT WINAPI CoInitializeSecurity(PSECURITY_DESCRIPTOR pSecDesc, LONG cAuthSvc
                                     DWORD dwImpLevel, void* pReserved2,
                                     DWORD dwCapabilities, void* pReserved3)
 {
-  FIXME("(%p,%d,%p,%p,%d,%d,%p,%d,%p) - stub!\n", pSecDesc, cAuthSvc,
-        asAuthSvc, pReserved1, dwAuthnLevel, dwImpLevel, pReserved2,
-        dwCapabilities, pReserved3);
-  return S_OK;
+    FIXME("(%p,%d,%p,%p,%d,%d,%p,%d,%p) - stub!\n", pSecDesc, cAuthSvc,
+          asAuthSvc, pReserved1, dwAuthnLevel, dwImpLevel, pReserved2,
+          dwCapabilities, pReserved3);
+
+    /* pReserved1 and pReserved3 must be NULL */
+    if (pReserved1 || pReserved3)
+        return E_INVALIDARG;
+
+    /* if cAuthSvc is -1, asAuthSvc must be NULL */
+    if ((cAuthSvc == -1) && asAuthSvc)
+        return E_INVALIDARG;
+
+    return CoInitialize(NULL);
 }
 
 /***********************************************************************
@@ -4139,7 +4148,7 @@ HRESULT WINAPI CoAllowSetForegroundWindow(IUnknown *pUnk, void *pvReserved)
     FIXME("(%p, %p): stub\n", pUnk, pvReserved);
     return S_OK;
 }
- 
+
 /***********************************************************************
  *           CoQueryProxyBlanket [OLE32.@]
  *
